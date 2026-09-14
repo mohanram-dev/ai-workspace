@@ -33,7 +33,7 @@ export function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
         <LogoMark className="mb-4 size-11 rounded-xl [&_svg]:size-6" />
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">What should we work on?</h1>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Describe a task and an agent will plan it and work through it. Agents reason and write only for now; tools and live execution arrive in later phases.
+          Describe a task and an agent will plan it, use its tools and work through it while you watch. Anything destructive waits for your approval.
         </p>
       </div>
 
