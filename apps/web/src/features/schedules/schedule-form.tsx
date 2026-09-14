@@ -85,7 +85,7 @@ export function ScheduleForm({ schedule = null, agents, projects, onSaved, onCan
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-4 rounded-xl border bg-card p-4">
+    <form method="post" onSubmit={submit} className="grid gap-4 rounded-xl border bg-card p-4">
       <div className="grid gap-1.5">
         <Label htmlFor="schedule-name">Name</Label>
         <Input id="schedule-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required placeholder="Morning AI news" />

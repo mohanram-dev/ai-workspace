@@ -248,7 +248,7 @@ No external state library. Patterns in use:
 ## 13. Form validation
 
 - **Schemas live in `@aiw/shared`** and are used on both sides: the server validates with `readJson(request, schema)`; the client relies on server messages (`errorMessage(e)` appends issue paths). There is no form library.
-- Forms are controlled `useState` + `onSubmit` with `event.preventDefault()`, a `saving` flag, and an inline `role="alert"` error. Example: `features/schedules/schedule-form.tsx`.
+- Forms are controlled `useState` + `onSubmit` with `event.preventDefault()`, a `saving` flag, and an inline `role="alert"` error. Example: `features/schedules/schedule-form.tsx`. **Every `<form>` carries `method="post"`**: if JavaScript has not attached, the browser's fallback submit must never put field values (passwords, API keys) into the URL.
 - Numeric limits come from shared constants (`AGENT_LIMITS`, `MAX_MESSAGE_LENGTH`, `MAX_ATTACHMENTS_PER_MESSAGE`) — never duplicate a limit in the client.
 
 ---

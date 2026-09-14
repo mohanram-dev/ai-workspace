@@ -86,6 +86,7 @@ export function Composer({
   return (
     <div className="mx-auto w-full max-w-3xl px-3 pb-3 sm:px-6 sm:pb-4">
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();

@@ -77,7 +77,7 @@ export function ProjectsPage() {
         </div>
 
         {creating && (
-          <form onSubmit={create} className="mt-4 grid gap-3 rounded-xl border bg-card p-4">
+          <form method="post" onSubmit={create} className="mt-4 grid gap-3 rounded-xl border bg-card p-4">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" maxLength={80} required autoFocus />
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this project for? (optional)" rows={2} maxLength={1000} />
             <div className="flex gap-2">

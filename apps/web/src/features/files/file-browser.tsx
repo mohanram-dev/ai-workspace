@@ -184,6 +184,7 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
 
       {creating && (
         <form
+          method="post"
           onSubmit={(e) => {
             e.preventDefault();
             void create();
