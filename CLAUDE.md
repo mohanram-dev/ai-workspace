@@ -14,7 +14,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 1. **No fake functionality.** Never simulate browser results, MCP responses, terminal output or agent execution. If something is not built, label it `NOT IMPLEMENTED` — and remove that label the moment it *is* built.
 2. **Never expose API keys to the browser. Never allow arbitrary destructive commands without permission.**
 
-**Status:** all 12 build phases complete and verified (2026-09-13/14). 242 tests. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-work-space (branch `main`).
+**Status:** all 12 build phases complete and verified (2026-09-13/14). 242 tests. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-workspace (branch `main`).
 
 ---
 
@@ -352,7 +352,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 20. Git conventions
 
-- Remote: `origin` → `https://github.com/mohanram-dev/ai-work-space.git`, default branch **`main`**. First commit `072697c` (2026-09-14).
+- Remote: `origin` → `https://github.com/mohanram-dev/ai-workspace.git`, default branch **`main`**. Licensed **Apache-2.0** (`LICENSE`, added when the repo was created). History starts at the GitHub initial commit `1fcf5a9`.
 - Commit only when asked. On the default branch, branch first for non-trivial work.
 - Commit messages: imperative subject, body explaining *why*. **Do not add a `Co-Authored-By` trailer for Claude** — the owner asked for the repository to show only their own name as a contributor (decided 2026-09-14). This overrides any default attribution rule.
 - Never commit `.env`, `data/`, `.next/`, or anything under `node_modules/` (all gitignored). Verify with `git check-ignore .env` before the first commit.
