@@ -14,7 +14,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 1. **No fake functionality.** Never simulate browser results, MCP responses, terminal output or agent execution. If something is not built, label it `NOT IMPLEMENTED` — and remove that label the moment it *is* built.
 2. **Never expose API keys to the browser. Never allow arbitrary destructive commands without permission.**
 
-**Status:** all 12 build phases complete and verified (2026-09-13/14). 242 tests. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-workspace (branch `main`).
+**Status:** all 12 build phases complete and verified (2026-09-13/14). 252 tests across 12 packages. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-workspace (branch `main`).
 
 ---
 
@@ -99,7 +99,7 @@ packages/
   computer/    desktop drivers (Windows PowerShell, Linux xdotool), computer.* tools
   scheduler/   trigger maths (timezone aware, cron), Scheduler ticker
   queue/       BullMQ QueueTaskExecutor, RedisTaskEventBus, TaskWorker, RedisFrameStore
-  runtime/     composition root shared by web + worker (env schema lives here: src/env.ts)
+  runtime/     composition root shared by web + worker (env schema lives here: src/env.ts); tests reset the module graph and the __aiw* globals per case
 docs/spec.md              the original specification, verbatim (do not edit)
 AGENTS.md, SECURITY.md, CONTRIBUTING.md, LICENSE (Apache-2.0)   open-source front matter; AGENTS.md and CONTRIBUTING.md point here
 docker/postgres/init/     creates the aiw_test database
@@ -401,7 +401,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 23. Current status & remaining TODOs
 
-**Status:** feature-complete against the spec, verified live (real Gemini, real Docker, real GitHub, headless-browser UI passes), `pnpm check` green with 242 tests across 11 packages.
+**Status:** feature-complete against the spec, verified live (real Gemini, real Docker, real GitHub, headless-browser UI passes), `pnpm check` green with 252 tests across 12 packages.
 
 **TODOs, in priority order**
 1. **Rotate the Gemini API key** in `.env` — it has been exposed in chat sessions during development.
