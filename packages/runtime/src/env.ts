@@ -1,0 +1,149 @@
+import { parseSshHosts } from "@aiw/tools";
+import { z } from "zod";
+
+/** Treat empty strings (e.g. `GEMINI_API_KEY=` in .env) as unset. */
+const optionalString = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  DATABASE_URL: z.url(),
+  APP_URL: z.url(),
+  BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
+  GEMINI_API_KEY: optionalString,
+  GEMINI_DEFAULT_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  /** Comma-separated model ids offered in the picker. Empty = all available text models. */
+  GEMINI_MODELS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ALLOW_REGISTRATION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
+  /** Model used by the automatic agent router. Defaults to GEMINI_DEFAULT_MODEL. */
+  ROUTER_MODEL: optionalString,
+  MAX_RUNNING_TASKS_PER_USER: z.coerce.number().int().min(1).max(50).default(3),
+  /** Base directory for per-user tool workspaces; relative paths resolve from the repository root. */
+  WORKSPACE_ROOT: z.string().min(1).default("./data/workspaces"),
+  TERMINAL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  TERMINAL_ALLOWED_COMMANDS: z
+    .string()
+    .default("ls,cat,echo,pwd,grep,find,wc,head,tail,du,df,git,node,npm,python3")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+    ),
+  TERMINAL_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(600).default(60),
+  WEB_SEARCH_PROVIDER: z.enum(["gemini", "searxng", "none"]).default("gemini"),
+  /** Gemini model for grounded search (grounding availability differs by model and plan). */
+  WEB_SEARCH_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
+  SEARXNG_URL: optionalString,
+  WEB_FETCH_ALLOW_PRIVATE_NETWORK: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  // Infrastructure tools (spec §15). Each touches this host or a real account,
+  // so each is off until switched on.
+  /** Docker tools run the docker CLI on this host. */
+  DOCKER_TOOLS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  DOCKER_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(600).default(60),
+  /** SSH tools run commands on the hosts named below. */
+  SSH_TOOLS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Hosts an agent may reach: name=user@host:port, comma separated. */
+  SSH_HOSTS: z.string().default("").transform(parseSshHosts),
+  SSH_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(600).default(60),
+  /** GitHub token for the github.* tools. Without it they work but are rate limited. */
+  GITHUB_TOKEN: optionalString,
+  GITHUB_API_URL: optionalString,
+
+  /** stdio MCP servers run commands on this host; only administrators can add them, and only when enabled. */
+  MCP_STDIO_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** How long an approval request stays open before it expires. */
+  APPROVAL_TIMEOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(30),
+
+  // Production (spec §44). Without REDIS_URL the whole app runs in one process.
+  /** Redis connection. Set it to run tasks in a separate worker tier. */
+  REDIS_URL: optionalString,
+  /** Tasks one worker process runs at once. */
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(3),
+  /** Which process runs the schedule ticker: the worker in queue mode, otherwise the web server. */
+  RUN_SCHEDULER: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+
+  // Agent-to-agent delegation (spec §28).
+  DELEGATION_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  MAX_DELEGATION_DEPTH: z.coerce.number().int().min(0).max(3).default(1),
+  MAX_DELEGATIONS_PER_TASK: z.coerce.number().int().min(1).max(20).default(5),
+  MAX_SUBTASK_SECONDS: z.coerce.number().int().min(30).max(3600).default(600),
+  /** Computer use: control the server's real desktop (mouse/keyboard/screen). Off by default; not a sandbox. */
+  COMPUTER_USE_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  COMPUTER_MAX_WIDTH: z.coerce.number().int().min(320).max(3840).default(1280),
+  /** Agent browser (headless Chromium via Playwright). */
+  BROWSER_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  /** Use an installed browser ("chrome" or "msedge") instead of Playwright's Chromium. */
+  BROWSER_CHANNEL: z.preprocess((v) => (v === "" ? undefined : v), z.enum(["chrome", "msedge", "chromium"]).optional()),
+  BROWSER_EXECUTABLE_PATH: optionalString,
+  BROWSER_MAX_SESSIONS: z.coerce.number().int().min(1).max(20).default(3),
+  BROWSER_ALLOW_PRIVATE_NETWORK: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Allow http MCP servers on loopback / private network addresses (e.g. a local Docker MCP server). */
+  MCP_ALLOW_PRIVATE_NETWORK: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+});
+
+export type ServerEnv = z.infer<typeof envSchema>;
+
+let cached: ServerEnv | undefined;
+
+/**
+ * Validated server environment. Parsed lazily so `next build` does not
+ * require runtime secrets; the first request fails fast if misconfigured.
+ */
+export function getServerEnv(): ServerEnv {
+  if (!cached) {
+    const result = envSchema.safeParse(process.env);
+    if (!result.success) {
+      const issues = result.error.issues
+        .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
+        .join("\n");
+      throw new Error(`Invalid server environment:\n${issues}`);
+    }
+    cached = result.data;
+  }
+  return cached;
+}

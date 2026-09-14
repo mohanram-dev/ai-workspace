@@ -1,0 +1,15 @@
+# Build context: source and manifests only.
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+data
+.git
+.env
+.env.*
+!.env.example
+*.log
+coverage
+**/*.tsbuildinfo

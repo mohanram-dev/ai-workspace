@@ -1,0 +1,87 @@
+# Production stack: Postgres, Redis, the web tier and the worker tier.
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Configuration comes from a .env file next to this one; nothing is baked into
+# the images. Coolify reads this file directly (see README, Deployment).
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aiw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-aiw}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aiw} -d ${POSTGRES_DB:-aiw}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # The queue must survive a restart, so persistence is on.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-aiw}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aiw}
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL:?set APP_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_DEFAULT_MODEL: ${GEMINI_DEFAULT_MODEL:-gemini-2.5-flash}
+      GEMINI_MODELS: ${GEMINI_MODELS:-}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      WORKSPACE_ROOT: /app/data/workspaces
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      # Shared with the worker: the file tools write here, the web tier browses it.
+      - workspaces:/app/data/workspaces
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-aiw}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aiw}
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_DEFAULT_MODEL: ${GEMINI_DEFAULT_MODEL:-gemini-2.5-flash}
+      GEMINI_MODELS: ${GEMINI_MODELS:-}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+      WORKSPACE_ROOT: /app/data/workspaces
+      # Computer use controls a real desktop; a container has none.
+      COMPUTER_USE_ENABLED: "false"
+    volumes:
+      - workspaces:/app/data/workspaces
+    # Chromium needs more than the default 64 MB of shared memory.
+    shm_size: 1gb
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  postgres-data:
+  redis-data:
+  workspaces:

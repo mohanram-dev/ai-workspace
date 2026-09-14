@@ -1,0 +1,40 @@
+# Worker tier: consumes the task queue and runs agents. Built on Playwright's
+# image because the browser agent needs a real Chromium and its system
+# libraries; that is also why this image is much larger than the web one.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble AS base
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+RUN corepack enable && corepack prepare pnpm@10.34.5 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/agents/package.json packages/agents/
+COPY packages/ai/package.json packages/ai/
+COPY packages/browser/package.json packages/browser/
+COPY packages/computer/package.json packages/computer/
+COPY packages/database/package.json packages/database/
+COPY packages/mcp/package.json packages/mcp/
+COPY packages/queue/package.json packages/queue/
+COPY packages/runtime/package.json packages/runtime/
+COPY packages/scheduler/package.json packages/scheduler/
+COPY packages/shared/package.json packages/shared/
+COPY packages/tools/package.json packages/tools/
+# The web app is not part of the worker, and installing it would pull in Next.
+RUN pnpm install --frozen-lockfile --filter @aiw/worker...
+
+FROM deps AS runner
+ENV NODE_ENV=production
+COPY packages ./packages
+COPY apps/worker ./apps/worker
+
+# pwuser ships with the Playwright image and owns the browser cache.
+RUN mkdir -p /app/data/workspaces && chown -R pwuser:pwuser /app/data
+USER pwuser
+ENV WORKSPACE_ROOT=/app/data/workspaces
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD pgrep -f "apps/worker/src/main.ts" > /dev/null || exit 1
+# tsx directly (pnpm links it into the workspace package), so the running
+# container needs no package manager.
+CMD ["./apps/worker/node_modules/.bin/tsx", "apps/worker/src/main.ts"]

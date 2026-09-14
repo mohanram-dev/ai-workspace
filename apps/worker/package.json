@@ -1,0 +1,22 @@
+{
+  "name": "@aiw/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aiw/agents": "workspace:*",
+    "@aiw/database": "workspace:*",
+    "@aiw/queue": "workspace:*",
+    "@aiw/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "tsx": "4.23.13",
+    "typescript": "6.0.3"
+  }
+}

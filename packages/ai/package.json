@@ -1,0 +1,21 @@
+{
+  "name": "@aiw/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@google/genai": "2.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  }
+}

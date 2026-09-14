@@ -1,0 +1,29 @@
+{
+  "name": "@aiw/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aiw/agents": "workspace:*",
+    "@aiw/ai": "workspace:*",
+    "@aiw/browser": "workspace:*",
+    "@aiw/computer": "workspace:*",
+    "@aiw/database": "workspace:*",
+    "@aiw/mcp": "workspace:*",
+    "@aiw/queue": "workspace:*",
+    "@aiw/scheduler": "workspace:*",
+    "@aiw/shared": "workspace:*",
+    "@aiw/tools": "workspace:*",
+    "zod": "4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "typescript": "6.0.3"
+  }
+}

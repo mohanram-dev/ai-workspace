@@ -1,0 +1,20 @@
+{
+  "name": "ai-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @aiw/web dev",
+    "build": "pnpm --filter @aiw/web build",
+    "start": "pnpm --filter @aiw/web start",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "db:generate": "pnpm --filter @aiw/database db:generate",
+    "db:migrate": "pnpm --filter @aiw/database db:migrate",
+    "db:studio": "pnpm --filter @aiw/database db:studio",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+  }
+}
