@@ -14,7 +14,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 1. **No fake functionality.** Never simulate browser results, MCP responses, terminal output or agent execution. If something is not built, label it `NOT IMPLEMENTED` — and remove that label the moment it *is* built.
 2. **Never expose API keys to the browser. Never allow arbitrary destructive commands without permission.**
 
-**Status:** all 12 build phases complete and verified (2026-09-13/14). 242 tests. `pnpm check` exits 0. The project has **never been committed to git** — see §22.
+**Status:** all 12 build phases complete and verified (2026-09-13/14). 242 tests. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-work-space (branch `main`).
 
 ---
 
@@ -352,7 +352,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 20. Git conventions
 
-- The repository is initialised on `master` but **has no commits yet**. The first commit is the highest-priority TODO.
+- Remote: `origin` → `https://github.com/mohanram-dev/ai-work-space.git`, default branch **`main`**. First commit `072697c` (2026-09-14).
 - Commit only when asked. On the default branch, branch first for non-trivial work.
 - Commit messages: imperative subject, body explaining *why*. End with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` (per the session's attribution rule).
 - Never commit `.env`, `data/`, `.next/`, or anything under `node_modules/` (all gitignored). Verify with `git check-ignore .env` before the first commit.
@@ -403,13 +403,12 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 **Status:** feature-complete against the spec, verified live (real Gemini, real Docker, real GitHub, headless-browser UI passes), `pnpm check` green with 242 tests across 11 packages.
 
 **TODOs, in priority order**
-1. **Make the first git commit** (and push to a remote). Nothing is under version control yet.
-2. **Rotate the Gemini API key** in `.env` — it has been exposed in chat sessions during development.
-3. Remove the stray `0` on the last line of `.env` (harmless, ignored by the parser).
-4. Use the app for real for a week and fix what daily use surfaces.
-5. Before internet exposure: fresh `BETTER_AUTH_SECRET`/`POSTGRES_PASSWORD`, `APP_URL` = real https URL, `ALLOW_REGISTRATION=false`, cron for `scripts/backup.sh`.
-6. Sandboxing for terminal/browser/SSH (disposable container per task) if those tools will be enabled on a shared host.
-7. Nice-to-haves from §22: second model provider, MCP OAuth, activity export, scheduler catch-up.
+1. **Rotate the Gemini API key** in `.env` — it has been exposed in chat sessions during development.
+2. Remove the stray `0` on the last line of `.env` (harmless, ignored by the parser).
+3. Use the app for real for a week and fix what daily use surfaces.
+4. Before internet exposure: fresh `BETTER_AUTH_SECRET`/`POSTGRES_PASSWORD`, `APP_URL` = real https URL, `ALLOW_REGISTRATION=false`, cron for `scripts/backup.sh`.
+5. Sandboxing for terminal/browser/SSH (disposable container per task) if those tools will be enabled on a shared host.
+6. Nice-to-haves from §22: second model provider, MCP OAuth, activity export, scheduler catch-up.
 
 ---
 
