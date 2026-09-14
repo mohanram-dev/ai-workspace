@@ -101,6 +101,7 @@ packages/
   queue/       BullMQ QueueTaskExecutor, RedisTaskEventBus, TaskWorker, RedisFrameStore
   runtime/     composition root shared by web + worker (env schema lives here: src/env.ts)
 docs/spec.md              the original specification, verbatim (do not edit)
+SECURITY.md, CONTRIBUTING.md, LICENSE (Apache-2.0)   open-source front matter; CONTRIBUTING points here
 docker/postgres/init/     creates the aiw_test database
 scripts/backup.sh|restore.sh
 Dockerfile, Dockerfile.worker, docker-compose.yml (dev), docker-compose.prod.yml, .dockerignore
@@ -352,7 +353,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 20. Git conventions
 
-- Remote: `origin` → `https://github.com/mohanram-dev/ai-workspace.git`, default branch **`main`**. Licensed **Apache-2.0** (`LICENSE`, added when the repo was created). History starts at the GitHub initial commit `1fcf5a9`.
+- Remote: `origin` → `https://github.com/mohanram-dev/ai-workspace.git`, default branch **`main`**. Author identity for this repo is `mohanram-dev@users.noreply.github.com` (set in the repo-local git config); never commit with a personal email. Licensed **Apache-2.0** (`LICENSE`, added when the repo was created). History starts at the GitHub initial commit `1fcf5a9`.
 - Commit only when asked. On the default branch, branch first for non-trivial work.
 - Commit messages: imperative subject, body explaining *why*. **Do not add a `Co-Authored-By` trailer for Claude** — the owner asked for the repository to show only their own name as a contributor (decided 2026-09-14). This overrides any default attribution rule.
 - Never commit `.env`, `data/`, `.next/`, or anything under `node_modules/` (all gitignored). Verify with `git check-ignore .env` before the first commit.

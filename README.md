@@ -1,6 +1,14 @@
 # AI Workspace
 
-A self-hosted AI agent workspace: give the AI a task, watch it plan and work, approve sensitive actions, get the result.
+**Self-hosted AI agent workspace** — give an AI a task, watch it plan and work live, approve the sensitive actions, get the result.
+
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Node 22+](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)](package.json)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](apps/web)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
+[![Docker](https://img.shields.io/badge/deploy-Docker%20%7C%20Coolify-2496ED?logo=docker&logoColor=white)](docker-compose.prod.yml)
+
+ChatGPT-style chat, specialist agents with real tools (files, git, terminal, web, browser, desktop, Docker, SSH, GitHub, MCP), a live execution timeline, human approval for destructive actions, projects, memory, schedules, a manager agent that delegates, and an observability dashboard — in one application you run yourself. **Nothing is simulated**: see [SECURITY.md](SECURITY.md) for what that means before you deploy it.
 
 The original product specification this was built from is kept verbatim in [docs/spec.md](docs/spec.md).
 
