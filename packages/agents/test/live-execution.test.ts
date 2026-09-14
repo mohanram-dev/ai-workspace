@@ -303,3 +303,18 @@ describe("createTaskEventStream", () => {
     expect(bus.listenerCount(created.task.id)).toBe(0);
   });
 });
+
+describe("AGENT_MESSAGE headline", () => {
+  it("puts a one-line, markdown-free headline in the description and the text in data", async () => {
+    const long = `## Result\n\nTo build your **SaaS** effectively, stop asking for _ideas_ and start asking for architectures. ${"More detail. ".repeat(80)}`;
+    const { service, executor, userId, general } = await setup(() => long, "never");
+    const created = await service.createTask(userId, { prompt: "Long answer", agentId: general.id });
+    expect(await executor.waitFor(created.task.id)).toBe("completed");
+
+    const event = (await listTaskEvents(handle.db, created.task.id)).find((e) => e.type === "AGENT_MESSAGE")!;
+    expect(event.description).toBe("Result");
+    expect(event.description.length).toBeLessThanOrEqual(160);
+    expect(event.description).not.toMatch(/[*_#]/);
+    expect((event.data as { text: string }).text.startsWith("## Result")).toBe(true);
+  });
+});
