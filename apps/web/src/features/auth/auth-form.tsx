@@ -77,7 +77,7 @@ export function AuthForm({ mode, registrationOpen }: AuthFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-4" noValidate={false}>
+        <form method="post" onSubmit={onSubmit} className="grid gap-4" noValidate={false}>
           {isSignUp && (
             <div className="grid gap-2">
               <Label htmlFor="name">Name</Label>

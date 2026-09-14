@@ -100,7 +100,7 @@ export function ConversationActions({ conversation, className, align = "end" }: 
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent className="sm:max-w-md">
-          <form onSubmit={onRename}>
+          <form method="post" onSubmit={onRename}>
             <DialogHeader>
               <DialogTitle>Rename conversation</DialogTitle>
               <DialogDescription className="sr-only">Enter a new title for this conversation.</DialogDescription>

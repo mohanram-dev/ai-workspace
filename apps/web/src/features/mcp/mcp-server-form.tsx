@@ -129,7 +129,7 @@ export function McpServerForm({ server, capabilities, onSaved, onCancel }: McpSe
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-6">
+    <form method="post" onSubmit={onSubmit} className="grid grid-cols-1 gap-6">
       <Section title="Server" description="The name prefix is part of every tool name, e.g. github.search_repositories. It cannot be changed later.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" htmlFor="mcp-name">

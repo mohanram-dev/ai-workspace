@@ -126,7 +126,7 @@ export function MemoryList({ memories, target, emptyText = "Nothing remembered y
 
       {target &&
         (adding ? (
-          <form onSubmit={add} className="grid gap-2 rounded-lg border p-3">
+          <form method="post" onSubmit={add} className="grid gap-2 rounded-lg border p-3">
             <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Key, e.g. database" maxLength={80} required autoFocus className="font-mono text-xs" />
             <Textarea value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value, e.g. PostgreSQL 17" rows={2} maxLength={2000} required />
             <div className="flex gap-2">

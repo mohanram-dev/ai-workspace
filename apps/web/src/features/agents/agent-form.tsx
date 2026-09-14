@@ -109,7 +109,7 @@ export function AgentForm({ agent, models, providers, tools }: AgentFormProps) {
 
   return (
     <div className="scrollbar-thin flex-1 overflow-y-auto">
-      <form onSubmit={onSubmit} className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-10">
+      <form method="post" onSubmit={onSubmit} className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-10">
         <div>
           <Link href="/agents" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeftIcon className="size-4" /> Agents
