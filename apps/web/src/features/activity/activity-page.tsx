@@ -222,7 +222,7 @@ export function ActivityPage() {
                 ) : (
                   <ol className="grid gap-1.5">
                     {events.map((event) => (
-                      <li key={event.id} className="flex flex-wrap items-baseline gap-2 text-sm">
+                      <li key={event.id} className="flex min-w-0 flex-wrap items-baseline gap-2 text-sm">
                         <span className="font-mono text-[0.65rem] text-muted-foreground tabular-nums">
                           {new Date(event.timestamp).toLocaleTimeString()}
                         </span>

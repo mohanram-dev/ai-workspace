@@ -160,6 +160,16 @@ function describeAction(tool: AnyToolDefinition, toolName: string, input: unknow
   return `${toolName}${detail}` || tool.name;
 }
 
+/** First line of an answer, markdown markers stripped, short enough for a feed row. */
+function headline(text: string, max = 160): string {
+  const line =
+    text
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^[#>*\-\s]+/, "").replace(/[*_`]/g, "").trim())
+      .find((l) => l.length > 0) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line || "Answer ready";
+}
+
 function storedOutput(output: unknown): unknown {
   const json = JSON.stringify(output ?? null);
   return json.length > MAX_STORED_OUTPUT_CHARS ? { truncated: true, preview: json.slice(0, MAX_STORED_OUTPUT_CHARS) } : output;
@@ -434,9 +444,10 @@ export class AgentRuntime {
       const result = steps.at(-1)?.output ?? "";
       if (result) {
         // The answer itself belongs on the timeline, not only in the task row.
+        // The description is a one-line headline; the text lives in data.
         const truncated = result.length > MAX_AGENT_MESSAGE_CHARS;
         await this.events.emit(this.context(state), "AGENT_MESSAGE", {
-          description: truncated ? `${result.slice(0, MAX_AGENT_MESSAGE_CHARS)}…` : result,
+          description: headline(result),
           status: "success",
           data: { text: truncated ? result.slice(0, MAX_AGENT_MESSAGE_CHARS) : result, truncated },
         });
