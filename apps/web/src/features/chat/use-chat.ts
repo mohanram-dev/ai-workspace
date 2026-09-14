@@ -25,8 +25,17 @@ interface UseChatOptions {
 
 const POLL_INTERVAL_MS = 2000;
 
+/**
+ * A client-only key for an optimistic message, replaced by the server's id.
+ * crypto.randomUUID exists only in secure contexts (https or localhost), so a
+ * LAN address or a bare IP over http has no such function; getRandomValues is
+ * available everywhere, and the id only has to be unique within this page.
+ */
 function tempId(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
+  const bytes = new Uint8Array(8);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return `${prefix}-${Date.now().toString(36)}-${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function localMessage(role: MessageDto["role"], content: string, status: MessageDto["status"], attachments: MessageAttachment[] = []): MessageDto {

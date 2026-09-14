@@ -219,6 +219,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Toasts: `sonner` (`toast.success/error`).
 - Placeholders for unbuilt features use `components/not-implemented.tsx` or an inert, labelled control — and must be **removed when the feature ships**. Three stale placeholders were found in an audit; do not create a fourth.
 - The `"use client"` directive must be the **first line** of the file, before imports.
+- Browser code must not depend on **secure-context-only** APIs (`crypto.randomUUID`, `crypto.subtle`, clipboard write, etc.) without a fallback: a LAN address or bare IP over plain http is a legitimate deployment, and those APIs are `undefined` there. `crypto.getRandomValues` is safe everywhere.
 - Relative time / tokens / cost / duration / bytes: always via `@/lib/format.ts` (`formatCost` keeps 4 decimals under $1 so totals match their rows).
 
 ---
