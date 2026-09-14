@@ -101,7 +101,7 @@ packages/
   queue/       BullMQ QueueTaskExecutor, RedisTaskEventBus, TaskWorker, RedisFrameStore
   runtime/     composition root shared by web + worker (env schema lives here: src/env.ts)
 docs/spec.md              the original specification, verbatim (do not edit)
-SECURITY.md, CONTRIBUTING.md, LICENSE (Apache-2.0)   open-source front matter; CONTRIBUTING points here
+AGENTS.md, SECURITY.md, CONTRIBUTING.md, LICENSE (Apache-2.0)   open-source front matter; AGENTS.md and CONTRIBUTING.md point here
 docker/postgres/init/     creates the aiw_test database
 scripts/backup.sh|restore.sh
 Dockerfile, Dockerfile.worker, docker-compose.yml (dev), docker-compose.prod.yml, .dockerignore
