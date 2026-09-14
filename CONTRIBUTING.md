@@ -61,7 +61,6 @@ Exactly the same process — nothing above depends on using one. `CLAUDE.md` is 
 
 - Anything labelled `good first issue`.
 - Items under **Known limitations** in `CLAUDE.md` §22 that do not require a security decision: activity export, a second model provider behind the existing `ProviderRegistry`, scheduler catch-up, MCP prompts/resources.
-- Test coverage for a code path that currently has none (`packages/runtime` has no tests).
 
 Things that need discussion in an issue first: anything touching `decidePermission`, `NEVER_AUTONOMOUS`, the approval flow, SSRF or path guards, or the sandboxing question. These are the security boundary and are not changed casually.
 
