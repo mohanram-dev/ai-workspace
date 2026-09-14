@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose something the workspace should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that you cannot do today? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How might it work? Optional — the problem matters more.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before opening
+      options:
+        - label: I checked the **Known limitations** in CLAUDE.md §22 and the existing issues
+          required: true
+        - label: This is not about the terminal/SSH/Docker sandboxing question (that has its own discussion)
