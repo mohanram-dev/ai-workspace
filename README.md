@@ -386,6 +386,12 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `BETTER_AUTH_SECRET` | yes | — | ≥ 32 characters. Generate with `openssl rand -base64 48` |
 | `GEMINI_API_KEY` | for chat | — | Google Gemini API key. Chat is disabled (with a clear notice) until set |
 | `GEMINI_DEFAULT_MODEL` | no | `gemini-2.5-flash` | Default model |
+| `OPENAI_BASE_URL` | no | — | Base URL of an OpenAI-compatible server, e.g. `http://localhost:8000/v1`. Unset = the provider is off |
+| `OPENAI_API_KEY` | no | — | Bearer token; many local gateways need none |
+| `OPENAI_DEFAULT_MODEL` | no | first of `OPENAI_MODELS` | Model used when none is chosen |
+| `OPENAI_MODELS` | no | — | Models offered in the picker; a gateway may advertise hundreds |
+| `OPENAI_PROVIDER_NAME` | no | `OpenAI-compatible` | Display name in the UI |
+| `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini` or `openai-compatible` |
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |
 | `ROUTER_MODEL` | no | `GEMINI_DEFAULT_MODEL` | Model used by the automatic agent router |
 | `MAX_RUNNING_TASKS_PER_USER` | no | `3` | Concurrent agent tasks allowed per user |

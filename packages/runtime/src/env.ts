@@ -21,6 +21,29 @@ const envSchema = z.object({
         .map((id) => id.trim())
         .filter(Boolean),
     ),
+  // OpenAI-compatible provider (spec §13): vLLM, Ollama, LiteLLM, OpenRouter,
+  // a self-hosted gateway, or OpenAI itself. The base URL is operator
+  // configuration, so a private/LAN address is expected and allowed here.
+  /** Base URL including the version path, e.g. http://10.0.0.5:8000/v1. Unset = provider off. */
+  OPENAI_BASE_URL: optionalString,
+  /** Optional: local gateways often need no key. */
+  OPENAI_API_KEY: optionalString,
+  OPENAI_DEFAULT_MODEL: optionalString,
+  /** Models offered in the picker (comma-separated). A gateway may advertise hundreds. */
+  OPENAI_MODELS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  /** Display name, so a self-hosted gateway reads as itself. */
+  OPENAI_PROVIDER_NAME: optionalString,
+  /** Which provider agents use when they do not name one. */
+  DEFAULT_PROVIDER: z.enum(["gemini", "openai-compatible"]).default("gemini"),
+
   ALLOW_REGISTRATION: z
     .enum(["true", "false"])
     .default("false")

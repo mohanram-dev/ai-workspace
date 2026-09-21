@@ -8,7 +8,7 @@
 
 A self-hosted **AI Agent Workspace**: the user gives an AI a task, the system picks an agent, plans, calls real tools (files, git, terminal, web, browser, desktop, Docker, SSH, GitHub, MCP servers), pauses for human approval on destructive actions, streams every step live to the browser, and saves the complete execution history.
 
-The product intent, verbatim from the original specification: *"I assigned work to an AI employee and I can watch it work."* The full 46-section spec is kept verbatim in [`docs/spec.md`](docs/spec.md). Every spec section is implemented except: S3-compatible storage (local disk by the owner's decision), non-Gemini model providers (the abstraction exists; only Gemini is implemented), and voice input (spec defers it).
+The product intent, verbatim from the original specification: *"I assigned work to an AI employee and I can watch it work."* The full 46-section spec is kept verbatim in [`docs/spec.md`](docs/spec.md). Every spec section is implemented except: S3-compatible storage (local disk by the owner's decision), the Anthropic native API (reachable through an OpenAI-compatible gateway), and voice input (spec defers it).
 
 **Two rules from the spec govern everything (§42, §32):**
 1. **No fake functionality.** Never simulate browser results, MCP responses, terminal output or agent execution. If something is not built, label it `NOT IMPLEMENTED` — and remove that label the moment it *is* built.
@@ -28,7 +28,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 | Validation | Zod 4 (shared schemas used by both server and client) | `zod 4.6.4` |
 | Database | PostgreSQL 17, Drizzle ORM + postgres-js | `drizzle-orm 0.45.2` |
 | Auth | Better Auth (email + password, Drizzle adapter) | `better-auth 1.7.4` |
-| AI | `@google/genai` (Gemini). Provider abstraction in `packages/ai` | |
+| AI | `@google/genai` (Gemini) and any OpenAI-compatible server (vLLM, Ollama, LiteLLM, OpenRouter, self-hosted gateways). Provider abstraction in `packages/ai` | |
 | Queue | Redis + BullMQ (optional worker tier) | `bullmq 6.3.4`, `ioredis 6.0.0` |
 | Browser agent | playwright-core (Chromium) behind a local SSRF egress proxy | `playwright-core 1.63.0` |
 | Scheduler | cron-parser + timezone maths | |
@@ -287,6 +287,7 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | --- | --- |
 | Required | `DATABASE_URL`, `APP_URL` (must match the served origin), `BETTER_AUTH_SECRET` (≥ 32 chars) |
 | Gemini | `GEMINI_API_KEY`, `GEMINI_DEFAULT_MODEL`, `GEMINI_MODELS`, `ROUTER_MODEL` |
+| OpenAI-compatible | `OPENAI_BASE_URL` (unset = off), `OPENAI_API_KEY` (optional), `OPENAI_DEFAULT_MODEL`, `OPENAI_MODELS`, `OPENAI_PROVIDER_NAME`, `DEFAULT_PROVIDER` |
 | Security | `ALLOW_REGISTRATION` (false), `CHAT_RATE_LIMIT_PER_MINUTE` |
 | Tasks | `MAX_RUNNING_TASKS_PER_USER`, `WORKSPACE_ROOT` (`./data/workspaces`) |
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
@@ -306,6 +307,7 @@ Known quirk of this dev machine: `WEB_SEARCH_MODEL` is deliberately `gemini-2.5-
 
 ## 17. External services
 
+- **Any OpenAI-compatible server** (`OPENAI_BASE_URL`): streaming, tool calls and `json_schema` structured output. Its base URL is **operator configuration**, so a private/LAN address is expected there and does not weaken the SSRF guards on `web.fetch`, MCP and the browser, which take untrusted input. Reasoning models return `reasoning_content` — never emit it as answer text. Tool-call arguments arrive as streamed fragments and must be accumulated before use.
 - **Google Gemini** (`@google/genai`): chat, planning, routing, tool calling, grounded search. Tool-result **images must be nested inside `functionResponse.parts`** (siblings leak stray tokens); user images are `inlineData` parts after the text; function names are sanitised to `[a-zA-Z0-9_]`, ≤ 64 chars; thought signatures must be echoed back with function calls.
 - **GitHub REST API** (read-only tools), **Docker CLI**, **ssh** client, **SearXNG** (optional), **MCP servers** the user configures.
 - **PostgreSQL**, **Redis** (optional).
@@ -387,7 +389,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 ## 22. Known limitations / issues
 
 - **No sandbox** for `terminal.run`, `ssh.run`, Docker tools or the browser: they run as the process user (inside the worker container in production, which limits blast radius but is not isolation). This is the one genuine security gap; all three tool groups are off by default because of it.
-- Only **Gemini** is implemented as a provider. `ProviderRegistry` is model-agnostic; OpenAI-compatible/Ollama providers are labelled NOT IMPLEMENTED in Settings.
+- Providers: **Gemini** and **OpenAI-compatible** (any server speaking chat-completions). The Anthropic native API is not implemented; use a gateway. A gateway's `/models` may list hundreds of entries, so set `OPENAI_MODELS` to keep the picker usable.
 - **S3** storage is not implemented (owner's decision: local disk under `WORKSPACE_ROOT`).
 - Voice input: not built (spec says "later").
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).
