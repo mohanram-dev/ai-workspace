@@ -400,6 +400,7 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini`, `openai-compatible` or `openrouter` |
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |
 | `ROUTER_MODEL` | no | the default provider's default model | Model used by the automatic agent router; must be one `DEFAULT_PROVIDER` offers |
+| `MODEL_FALLBACKS` | no | — | Models tried in order when the chosen one cannot answer; may span providers |
 | `MAX_RUNNING_TASKS_PER_USER` | no | `3` | Concurrent agent tasks allowed per user |
 | `ALLOW_REGISTRATION` | no | `false` | Allow sign-ups after the first (admin) account |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | no | `20` | Per-user chat request limit |

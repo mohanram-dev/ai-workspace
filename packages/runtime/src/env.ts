@@ -100,6 +100,21 @@ const envSchema = z.object({
   CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
   /** Model used by the automatic agent router. Defaults to GEMINI_DEFAULT_MODEL. */
   ROUTER_MODEL: optionalString,
+  /**
+   * Models tried in order when the chosen one cannot answer — a rate limit, an
+   * unreachable provider, a rejected key or an unknown model — after the normal
+   * retries. Ids resolve through the registry, so they may span providers.
+   * Empty = no fallback, and the task fails with the original error.
+   */
+  MODEL_FALLBACKS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
   MAX_RUNNING_TASKS_PER_USER: z.coerce.number().int().min(1).max(50).default(3),
   /** Base directory for per-user tool workspaces; relative paths resolve from the repository root. */
   WORKSPACE_ROOT: z.string().min(1).default("./data/workspaces"),

@@ -86,6 +86,12 @@ export interface AgentRuntimeOptions {
   routingTimeoutMs?: number;
   /** Backoff delays for retrying rate-limited or unavailable provider calls. */
   retryDelaysMs?: number[];
+  /**
+   * Models to try, in order, when the chosen one still cannot answer after
+   * those retries. Ids are resolved through the registry, so a fallback may
+   * belong to a different provider.
+   */
+  modelFallbacks?: string[];
   now?: () => Date;
 }
 
@@ -103,6 +109,13 @@ interface RunState {
   signal: AbortSignal;
   step: TaskStep | null;
   toolCallsUsed: number;
+  /**
+   * The model a fallback landed on, once one has. The rest of the task starts
+   * from it: a provider that is down stays down for the next call too, and
+   * without this every call pays the failed model's full retry backoff again —
+   * 43 seconds of sleeping per call, measured against a dead gateway.
+   */
+  fallbackModel: ModelTarget | null;
 }
 
 class CancelledError extends Error {
@@ -244,6 +257,23 @@ function isTransient(error: unknown): boolean {
   return isProviderError(error) && (error.code === "rate_limited" || error.code === "unavailable");
 }
 
+/**
+ * Provider failures that mean "this model cannot serve this request", and so
+ * are worth trying another model for (spec §13).
+ *
+ * `aborted` is deliberately absent: you pressed Stop, or the task hit its time
+ * limit, and starting the same work on another model would ignore that. A
+ * budget stop is a `TaskFailure`, not a `ProviderError`, so it never reaches
+ * here either — falling back would defeat the limit it exists to enforce.
+ * `invalid_request` is absent because a malformed request is our bug, and
+ * every other model would reject it too.
+ */
+const FALLBACK_CODES = new Set(["rate_limited", "unavailable", "authentication", "not_configured", "model_not_found"]);
+
+function isWorthFallingBack(error: unknown): boolean {
+  return isProviderError(error) && FALLBACK_CODES.has(error.code);
+}
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new CancelledError());
@@ -319,7 +349,7 @@ export class AgentRuntime {
     if (!claimed) return null;
 
     const startedAt = claimed.startedAt ?? this.now();
-    const state: RunState = { task: claimed, agent: null, signal: userSignal, step: null, toolCallsUsed: 0 };
+    const state: RunState = { task: claimed, agent: null, signal: userSignal, step: null, toolCallsUsed: 0, fallbackModel: null };
     let timeoutSignal: AbortSignal | null = null;
 
     try {
@@ -916,9 +946,12 @@ export class AgentRuntime {
     await this.status(state, "Choosing the best agent…");
     const target = await this.options.registry.resolveModel(this.options.routerModel ?? task.modelOverride ?? undefined);
     const routingSignal = AbortSignal.any([state.signal, AbortSignal.timeout(this.options.routingTimeoutMs ?? 60_000)]);
-    const decision = await routeTask(task.prompt, candidates, (request) =>
-      this.callModel({ ...state, signal: routingSignal }, target, "routing", request),
-    );
+    // Routing runs on a copy, because it carries its own timeout signal.
+    const routingState: RunState = { ...state, signal: routingSignal };
+    const decision = await routeTask(task.prompt, candidates, (request) => this.callModel(routingState, target, "routing", request));
+    // A fallback the routing call landed on is written to that copy, so carry
+    // it back: otherwise planning pays the failed model's full backoff again.
+    state.fallbackModel = routingState.fallbackModel;
     await updateTask(db, task.id, { agentId: decision.agent.id, routing: decision.routing });
     const { agent } = decision;
     await this.events.emit({ taskId: task.id, userId: task.userId, agent: { id: agent.id, name: agent.name } }, "AGENT_SELECTED", {
@@ -961,13 +994,67 @@ export class AgentRuntime {
     });
   }
 
-  /** A model call with budget checks, usage accounting and retries for transient provider errors. */
+  /**
+   * A model call with budget checks, usage accounting, retries for transient
+   * provider errors, and — once those are exhausted — a switch to the next
+   * model in `modelFallbacks` (spec §13).
+   *
+   * The switch is announced as a warning on the timeline rather than made
+   * silently: a different model can mean a different price and a different
+   * quality of answer, so it has to be visible. `usage_log` records the model
+   * that actually answered each call, so cost stays attributed correctly.
+   */
   private async callModel(
     state: RunState,
     target: ModelTarget,
     purpose: UsagePurpose,
     request: Omit<ChatRequest, "model" | "signal">,
     streamStep: TaskStep | null = null,
+  ): Promise<CompletedResponse> {
+    let current = state.fallbackModel ?? target;
+    const tried = new Set<string>([current.model]);
+
+    for (;;) {
+      try {
+        const response = await this.callModelWithRetries(state, current, purpose, request, streamStep);
+        // Whatever finally answered is where the next call starts.
+        if (current.model !== target.model) state.fallbackModel = current;
+        return response;
+      } catch (error) {
+        // A cancelled or timed-out task must not be restarted on another model.
+        if (!isWorthFallingBack(error) || state.signal.aborted) throw error;
+        const next = await this.nextFallbackModel(tried);
+        if (!next) throw error;
+        tried.add(next.model);
+        const reason = isProviderError(error) ? error.message : "The model call failed.";
+        await this.status(state, `${current.model} could not answer: ${reason} Trying ${next.model}…`, "warning");
+        current = next;
+      }
+    }
+  }
+
+  /**
+   * The next configured fallback that resolves to a real model, skipping any
+   * already tried. Resolution goes through the registry, so a fallback may live
+   * on a different provider than the model that just failed.
+   */
+  private async nextFallbackModel(tried: Set<string>): Promise<ModelTarget | null> {
+    for (const id of this.options.modelFallbacks ?? []) {
+      if (tried.has(id)) continue;
+      const resolved = await this.options.registry.resolveModel(id).catch(() => null);
+      if (resolved) return resolved;
+      // An id that cannot be resolved is not worth resolving again this task.
+      tried.add(id);
+    }
+    return null;
+  }
+
+  private async callModelWithRetries(
+    state: RunState,
+    target: ModelTarget,
+    purpose: UsagePurpose,
+    request: Omit<ChatRequest, "model" | "signal">,
+    streamStep: TaskStep | null,
   ): Promise<CompletedResponse> {
     const delays = this.options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
     for (let attempt = 0; ; attempt++) {
