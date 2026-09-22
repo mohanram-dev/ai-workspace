@@ -41,13 +41,20 @@ export function useModels() {
     window.localStorage.setItem(STORAGE_KEY, model);
   }, []);
 
-  const provider = data?.providers[0];
+  // Models come from every configured provider, so "configured" means at least
+  // one of them is — reading providers[0] alone said "not configured" whenever
+  // the first registered provider happened to be the unused one.
+  const providers = data?.providers ?? [];
+  const usable = providers.filter((p) => p.configured);
+  const providerNames = Object.fromEntries(providers.map((p) => [p.id, p.name]));
+
   return {
     loading: !data && !loadError,
     models: data?.models ?? [],
     listError: data?.error ?? loadError,
-    configured: provider?.configured ?? false,
-    providerName: provider?.name ?? "Model provider",
+    configured: usable.length > 0,
+    providerName: usable.length === 1 ? usable[0]!.name : "Model provider",
+    providerNames,
     selected,
     select,
   };
