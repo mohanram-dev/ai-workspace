@@ -213,7 +213,13 @@ export function ChatView({ conversation }: { conversation: ConversationWithMessa
               <AgentPicker agents={agents} value={effectiveMode} onChange={changeAgentMode} disabled={streaming} />
               {effectiveMode !== "chat" && <ProjectPicker value={project} onChange={setProject} disabled={streaming} />}
               {effectiveMode === "chat" ? (
-                <ModelPicker models={models.models} value={models.selected} onChange={models.select} disabled={streaming} />
+                <ModelPicker
+                  models={models.models}
+                  value={models.selected}
+                  onChange={models.select}
+                  disabled={streaming}
+                  providerNames={models.providerNames}
+                />
               ) : (
                 <ModelPicker
                   models={models.models}
@@ -221,6 +227,7 @@ export function ChatView({ conversation }: { conversation: ConversationWithMessa
                   onChange={setTaskModel}
                   disabled={streaming}
                   defaultLabel="Agent's model"
+                  providerNames={models.providerNames}
                 />
               )}
             </>

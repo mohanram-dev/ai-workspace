@@ -140,7 +140,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 
 | Route | Purpose |
 | --- | --- |
-| `/` | New task / chat composer (agent picker, project picker, model picker, attachments) |
+| `/` | New task / chat composer (agent picker, project picker, model picker, attachments). The model picker lists **every configured provider's** models, grouped by provider, default provider first — pick per task without touching `DEFAULT_PROVIDER` |
 | `/c/[conversationId]` | A conversation with its messages and task cards |
 | `/conversations` | Search, rename, delete, archive, pin |
 | `/agents`, `/agents/new`, `/agents/[agentId]` | Agent list and editor (tools, permissions, limits, autonomous mode) |

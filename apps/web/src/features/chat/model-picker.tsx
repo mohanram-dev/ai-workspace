@@ -2,7 +2,7 @@
 
 import type { ModelDto } from "@aiw/shared";
 import { SparklesIcon } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const DEFAULT_MODEL_VALUE = "__default__";
 
@@ -13,9 +13,29 @@ interface ModelPickerProps {
   disabled?: boolean;
   /** Adds a first option (value DEFAULT_MODEL_VALUE), e.g. the agent default. */
   defaultLabel?: string;
+  /** Provider id → display name, for the group headings. */
+  providerNames?: Record<string, string>;
 }
 
-export function ModelPicker({ models, value, onChange, disabled, defaultLabel }: ModelPickerProps) {
+/**
+ * Groups the models by provider, keeping the order the API sent (default
+ * provider first). A single provider gets no heading — the grouping only earns
+ * its space once there is a choice to make between providers.
+ */
+export function groupModelsByProvider(models: ModelDto[]): { provider: string; models: ModelDto[] }[] {
+  const groups: { provider: string; models: ModelDto[] }[] = [];
+  for (const model of models) {
+    const last = groups.at(-1);
+    if (last?.provider === model.provider) last.models.push(model);
+    else groups.push({ provider: model.provider, models: [model] });
+  }
+  return groups;
+}
+
+export function ModelPicker({ models, value, onChange, disabled, defaultLabel, providerNames }: ModelPickerProps) {
+  const groups = groupModelsByProvider(models);
+  const showHeadings = groups.length > 1;
+
   return (
     <Select value={value ?? ""} onValueChange={onChange} disabled={disabled || models.length === 0}>
       <SelectTrigger
@@ -32,11 +52,16 @@ export function ModelPicker({ models, value, onChange, disabled, defaultLabel }:
             {defaultLabel}
           </SelectItem>
         )}
-        {models.map((model) => (
-          // Item text is also what the trigger displays, so keep it to the label.
-          <SelectItem key={model.id} value={model.id} title={model.id} className="text-sm">
-            {model.label}
-          </SelectItem>
+        {groups.map((group) => (
+          <SelectGroup key={group.provider}>
+            {showHeadings && <SelectLabel className="text-xs">{providerNames?.[group.provider] ?? group.provider}</SelectLabel>}
+            {group.models.map((model) => (
+              // Item text is also what the trigger displays, so keep it to the label.
+              <SelectItem key={model.id} value={model.id} title={model.id} className="text-sm">
+                {model.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         ))}
       </SelectContent>
     </Select>
