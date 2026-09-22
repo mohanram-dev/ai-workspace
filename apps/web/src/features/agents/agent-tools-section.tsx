@@ -18,6 +18,7 @@ const CATEGORY_LABELS: Record<ToolInfoDto["category"], string> = {
   computer: "Computer",
   memory: "Memory",
   agent: "Agents",
+  schedule: "Schedules",
   docker: "Docker",
   ssh: "SSH",
   github: "GitHub",

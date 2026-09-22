@@ -4,7 +4,7 @@ export type ToolPermissionLevel = "READ" | "WRITE" | "EXECUTE" | "NETWORK" | "DE
 export interface ToolInfoDto {
   name: string;
   description: string;
-  category: "files" | "terminal" | "git" | "web" | "browser" | "computer" | "memory" | "agent" | "docker" | "ssh" | "github" | "mcp";
+  category: "files" | "terminal" | "git" | "web" | "browser" | "computer" | "memory" | "agent" | "schedule" | "docker" | "ssh" | "github" | "mcp";
   permission: ToolPermissionLevel | "DYNAMIC";
   available: boolean;
   unavailableReason: string | null;

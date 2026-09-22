@@ -4,6 +4,7 @@ import type { GeminiProvider } from "@aiw/ai";
 import { createBuiltinToolRegistry, SearxngSearchService, type ToolRegistry, type WebSearchService } from "@aiw/tools";
 import { getDatabase } from "@aiw/database";
 import { createMemoryTools } from "@aiw/agents";
+import { createScheduleTools } from "@aiw/scheduler";
 import { getBrowserTools } from "./browser";
 import { getComputerTools } from "./computer";
 import { getServerEnv, type ServerEnv } from "./env";
@@ -74,6 +75,7 @@ export function getToolRegistry(): ToolRegistry {
     for (const tool of getBrowserTools()) globalForTools.__aiwTools.register(tool);
     for (const tool of getComputerTools()) globalForTools.__aiwTools.register(tool);
     for (const tool of createMemoryTools(getDatabase())) globalForTools.__aiwTools.register(tool);
+    for (const tool of createScheduleTools({ db: getDatabase() })) globalForTools.__aiwTools.register(tool);
   }
   return globalForTools.__aiwTools;
 }
