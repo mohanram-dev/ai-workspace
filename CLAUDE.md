@@ -155,7 +155,9 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 
 Mobile bottom nav: Chat · Tasks · Agents · Activity · Settings.
 
-The desktop sidebar's `PRIMARY_NAV` lists workspace destinations only. **Settings is deliberately not in it** — account and server configuration lives in the user menu (`components/shell/user-menu.tsx`), which also holds the theme switcher. Adding it back to `PRIMARY_NAV` puts two "Settings" links on one screen. The mobile bottom bar keeps Settings because there is no persistent user menu there.
+The desktop sidebar's `PRIMARY_NAV` lists workspace destinations only. **Settings is deliberately not in it** — account and server configuration lives in the user menu (`components/shell/user-menu.tsx`), which also holds the theme switcher. The mobile bottom bar keeps Settings because there is no persistent user menu there.
+
+The two lists must stay disjoint: the sidebar and the open user menu are visible at the same time, so an entry in both appears twice on one screen. The user menu holds **account-scoped items only** (Settings, Theme, Sign out); a destination that already has a `PRIMARY_NAV` row does not go in it.
 
 ---
 

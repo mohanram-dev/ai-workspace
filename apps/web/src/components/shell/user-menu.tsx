@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  ActivityIcon,
   ChevronsUpDownIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
-  PlugIcon,
   SettingsIcon,
   SunIcon,
   SwatchBookIcon,
@@ -85,16 +83,11 @@ export function UserMenu({ user }: { user: ShellUser }) {
             <SettingsIcon /> Settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/mcp">
-            <PlugIcon /> MCP servers
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/activity">
-            <ActivityIcon /> Usage and activity
-          </Link>
-        </DropdownMenuItem>
+        {/*
+          Only account-scoped entries belong here. Anything that is also a row
+          in PRIMARY_NAV (MCP Tools, Activity, …) would show twice on one
+          screen, which is the duplication this menu was cleaned up to remove.
+        */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <SwatchBookIcon /> Theme
