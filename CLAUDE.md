@@ -128,7 +128,7 @@ data/workspaces/          per-user agent workspaces on local disk (gitignored)
 | `apps/web/src/server/session.ts` | `requireApiSession` (routes) / `requirePageSession` (pages). |
 | `apps/web/src/server/agent-dto.ts`, `dto.ts`, `project-dto.ts` | Row → DTO mappers. Never return Drizzle rows to the client directly. |
 | `apps/web/src/lib/api-client.ts` | `apiFetch<T>()` and `errorMessage()`; the only way the client calls the API. |
-| `apps/web/src/components/shell/nav-config.ts` | Sidebar + mobile nav. |
+| `apps/web/src/components/shell/nav-config.ts` | Sidebar + mobile nav. Sidebar rows are inset `px-2`; the conversation search box and dividers must match, or the left edge steps in and out. |
 | `apps/web/next.config.ts` | CSP and security headers; `BUILD_STANDALONE=true` enables standalone output (Docker only — it breaks `next start`). |
 | `apps/web/src/instrumentation.ts` | Startup recovery and scheduler; does nothing in queue mode (the worker owns those). |
 
@@ -154,6 +154,8 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/sign-in`, `/sign-up` | Auth. First account becomes admin; further sign-ups need `ALLOW_REGISTRATION=true` |
 
 Mobile bottom nav: Chat · Tasks · Agents · Activity · Settings.
+
+The desktop sidebar's `PRIMARY_NAV` lists workspace destinations only. **Settings is deliberately not in it** — account and server configuration lives in the user menu (`components/shell/user-menu.tsx`), which also holds the theme switcher. Adding it back to `PRIMARY_NAV` puts two "Settings" links on one screen. The mobile bottom bar keeps Settings because there is no persistent user menu there.
 
 ---
 
