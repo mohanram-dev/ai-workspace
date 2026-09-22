@@ -122,6 +122,7 @@ data/workspaces/          per-user agent workspaces on local disk (gitignored)
 | `packages/tools/src/permissions.ts` | `decidePermission`; the autonomous floor. |
 | `packages/shared/src/events.ts` | `TASK_EVENT_TYPES` + `TaskEventDataMap`. Adding an event type also requires an icon in `activity-timeline.tsx` and, if it is a tool activity, a description in `runtime.ts`. |
 | `packages/shared/src/agents.ts` | Agent config schema/DTO, `NEVER_AUTONOMOUS`. |
+| `packages/shared/src/schedules.ts` | Schedule schemas. `isValidTimeZone` uses `Intl` itself, **not** `Intl.supportedValuesOf("timeZone")` — that list holds `Asia/Calcutta` but not `Asia/Kolkata`, so it would reject the name most people type. |
 | `packages/database/src/schema/*.ts` | 22 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
 | `packages/database/src/testing.ts` | Resets the test DB; refuses any DB whose name does not end in `_test`. |
 | `apps/web/src/server/http.ts` | `HttpError`, `errorResponse`, `assertSameOrigin`, `readJson(schema)`, `isUuid`. Use these in every route. |
