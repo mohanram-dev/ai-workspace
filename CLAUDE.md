@@ -97,7 +97,7 @@ packages/
   mcp/         MCP client manager, discovery, tool source, SecretBox (AES-GCM) for server secrets
   browser/     Playwright manager, egress proxy, page snapshots, browser.* tools, live frames
   computer/    desktop drivers (Windows PowerShell, Linux xdotool), computer.* tools
-  scheduler/   trigger maths (timezone aware, cron), Scheduler ticker
+  scheduler/   trigger maths (timezone aware, cron), Scheduler ticker, schedule.* tools
   queue/       BullMQ QueueTaskExecutor, RedisTaskEventBus, TaskWorker, RedisFrameStore
   runtime/     composition root shared by web + worker (env schema lives here: src/env.ts); tests reset the module graph and the __aiw* globals per case
 docs/spec.md              the original specification, verbatim (do not edit)
@@ -147,7 +147,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/agents`, `/agents/new`, `/agents/[agentId]` | Agent list and editor (tools, permissions, limits, autonomous mode) |
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
-| `/schedules` | Cron/daily/weekly/monthly/interval/once schedules + run history. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
+| `/schedules` | Created from the form **or from a chat message** — `schedule.create` is DESTRUCTIVE, so the agent's proposal waits for your approval. Cron/daily/weekly/monthly/interval/once + run history. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
 | `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
 | `/mcp`, `/mcp/new`, `/mcp/[serverId]` | MCP servers, tool discovery, per-tool permissions |
 | `/activity` | Observability dashboard + live event feed |
@@ -201,7 +201,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Access goes through **repositories** (`src/repositories/*.ts`): `getXForUser(db, userId, id)` is the ownership check; never query a user's rows without the userId filter.
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 15 migrations exist, `0000_init` → `0014_schedule_run_outcomes`. Data migrations (like 0013) are hand-written.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 16 migrations exist, `0000_init` → `0015_general_agent_schedule_tools`. Data migrations (0013, 0015) are hand-written.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---
@@ -382,6 +382,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 | Item | Why |
 | --- | --- |
 | `docs/spec.md` | Verbatim record of the original specification. Never edit. |
+| `schedule.create` permission | DESTRUCTIVE, and never granted — `decidePermission` sends that level to a human whatever the agent's grants say. It is the only tool that commits the workspace to running and spending unattended, and a wrong time is discovered the next morning. `MIN_SCHEDULE_INTERVAL_MINUTES` and `MAX_SCHEDULES_PER_USER` bound it; the cron floor is measured from the gap between the first two occurrences rather than by reading the expression. |
 | `NEVER_AUTONOMOUS` (`@aiw/shared`) | The security floor for autonomous mode. Extending it is fine; removing an entry needs the owner's explicit decision. |
 | `ProviderRegistry.resolveModel` cross-provider search | An explicitly chosen model is looked up on the named provider first, then on the other configured ones (default provider first). Without it, picking a model from a provider the agent is not pinned to fails every task with `model_not_found`. Tests in `packages/ai/test/registry.test.ts` encode the order. |
 | `decidePermission` semantics | READ free, grants for WRITE/EXECUTE/NETWORK, humans for DESTRUCTIVE. Tests in `packages/agents/test/approvals.test.ts` encode this. |
@@ -434,7 +435,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 - Files: `kebab-case.ts(x)`; feature pages `<area>-page.tsx`; hooks `use-<thing>.ts`; tests `<thing>.test.ts` next to package `test/` dirs (web tests sit beside the source as `*.test.ts`).
 - Packages: `@aiw/<name>`; exports through each package's `src/index.ts` only.
-- Tool names: `<category>.<verb>` (`files.read`, `docker.logs`, `agent.delegate`); MCP tools are `mcp.<server-slug>.<tool>` via `qualifiedToolName`.
+- Tool names: `<category>.<verb>` (`files.read`, `docker.logs`, `agent.delegate`, `schedule.create`); MCP tools are `mcp.<server-slug>.<tool>` via `qualifiedToolName`.
 - Events: `SCREAMING_SNAKE` in `TASK_EVENT_TYPES`; DTO types end in `Dto`; Zod schemas end in `Schema`; env vars `SCREAMING_SNAKE`.
 - DB: snake_case columns and table names, singular table names (`task`, `agent`), Drizzle exports plural (`tasks`, `agents`).
 - Route folders mirror REST nouns; dynamic segments `[id]` in API routes, descriptive `[taskId]`/`[agentId]` in pages.

@@ -29,8 +29,10 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     temperature: 0.7,
     planningMode: "auto",
     maxSteps: 4,
-    tools: ["web.search","web.fetch"],
-    permissions: ["NETWORK"],
+    // DESTRUCTIVE is never granted — schedule.create always asks the human.
+    // WRITE is what schedule.disable needs.
+    tools: ["web.search","web.fetch","schedule.create","schedule.list","schedule.disable"],
+    permissions: ["NETWORK","WRITE"],
   },
   {
     slug: "coding",

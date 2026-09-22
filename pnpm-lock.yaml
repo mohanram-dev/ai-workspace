@@ -368,6 +368,9 @@ importers:
       '@aiw/shared':
         specifier: workspace:*
         version: link:../shared
+      '@aiw/tools':
+        specifier: workspace:*
+        version: link:../tools
       cron-parser:
         specifier: 5.10.1
         version: 5.10.1

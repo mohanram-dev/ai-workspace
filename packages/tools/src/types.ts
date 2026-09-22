@@ -5,7 +5,7 @@ import type { Workspace } from "./workspace";
 export const PERMISSION_LEVELS = ["READ", "WRITE", "EXECUTE", "NETWORK", "DESTRUCTIVE"] as const;
 export type PermissionLevel = (typeof PERMISSION_LEVELS)[number];
 
-export type ToolCategory = "files" | "terminal" | "git" | "web" | "browser" | "computer" | "memory" | "agent" | "docker" | "ssh" | "github" | "mcp";
+export type ToolCategory = "files" | "terminal" | "git" | "web" | "browser" | "computer" | "memory" | "agent" | "schedule" | "docker" | "ssh" | "github" | "mcp";
 
 export type ToolErrorCode = "invalid_input" | "permission_denied" | "not_found" | "timeout" | "unavailable" | "cancelled" | "failed";
 

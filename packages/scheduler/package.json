@@ -13,6 +13,7 @@
   "dependencies": {
     "@aiw/database": "workspace:*",
     "@aiw/shared": "workspace:*",
+    "@aiw/tools": "workspace:*",
     "cron-parser": "5.10.1",
     "zod": "4.6.4"
   },

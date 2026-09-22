@@ -1,5 +1,5 @@
 import { CronExpressionParser } from "cron-parser";
-import type { ScheduleTrigger } from "@aiw/shared";
+import { isValidTimeZone, type ScheduleTrigger } from "@aiw/shared";
 
 export interface TriggerSettings {
   trigger: ScheduleTrigger;
@@ -32,14 +32,8 @@ export function assertValidTrigger(settings: TriggerSettings): void {
   }
 }
 
-export function isValidTimezone(timezone: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** Re-exported so existing callers keep working; the rule lives in @aiw/shared. */
+export const isValidTimezone = isValidTimeZone;
 
 /**
  * The next moment this schedule should run, strictly after `from`.
