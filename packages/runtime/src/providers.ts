@@ -4,7 +4,7 @@ import { getServerEnv } from "./env";
 const globalForProviders = globalThis as unknown as { __aiwProviders?: ProviderRegistry };
 
 /**
- * The configured model providers. Both are always registered; each reports
+ * The configured model providers. All three are always registered; each reports
  * whether it is configured, so the UI can show one as unavailable rather than
  * hiding it. `DEFAULT_PROVIDER` decides which one an agent uses by default.
  */
@@ -26,6 +26,22 @@ export function getProviderRegistry(): ProviderRegistry {
           defaultModel: env.OPENAI_DEFAULT_MODEL ?? env.OPENAI_MODELS[0] ?? "",
           name: env.OPENAI_PROVIDER_NAME,
           allowedModels: env.OPENAI_MODELS,
+        }),
+        new OpenAICompatibleProvider({
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: env.OPENROUTER_BASE_URL,
+          apiKey: env.OPENROUTER_API_KEY,
+          // The URL has a default, so only the key decides whether OpenRouter
+          // is usable — it rejects unauthenticated requests.
+          requiresApiKey: true,
+          defaultModel: env.OPENROUTER_DEFAULT_MODEL,
+          allowedModels: env.OPENROUTER_MODELS,
+          extraHeaders: {
+            // OpenRouter attributes usage to an app by these headers (optional).
+            "HTTP-Referer": env.APP_URL,
+            ...(env.OPENROUTER_APP_NAME ? { "X-Title": env.OPENROUTER_APP_NAME } : {}),
+          },
         }),
       ],
       env.DEFAULT_PROVIDER,

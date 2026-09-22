@@ -14,6 +14,13 @@ import { requirePageSession } from "@/server/session";
 
 export const metadata: Metadata = { title: "Settings" };
 
+/** The one variable that turns each provider on, named so the fix is obvious. */
+const SETUP_ENV_VAR: Record<string, string> = {
+  gemini: "GEMINI_API_KEY",
+  "openai-compatible": "OPENAI_BASE_URL",
+  openrouter: "OPENROUTER_API_KEY",
+};
+
 export default async function SettingsPage() {
   const { user } = await requirePageSession();
   const env = getServerEnv();
@@ -62,7 +69,7 @@ export default async function SettingsPage() {
                   </>
                 ) : (
                   <Badge variant="outline" className="border-warning/40 bg-warning/10 text-foreground">
-                    Not configured — set {provider.id === "gemini" ? "GEMINI_API_KEY" : "OPENAI_BASE_URL"}
+                    Not configured — set {SETUP_ENV_VAR[provider.id] ?? "the provider's credentials"}
                   </Badge>
                 )}
               </div>

@@ -4,6 +4,22 @@ import { z } from "zod";
 /** Treat empty strings (e.g. `GEMINI_API_KEY=` in .env) as unset. */
 const optionalString = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
 
+/**
+ * Low-cost OpenRouter models offered when `OPENROUTER_MODELS` is not set.
+ * Verified against the live API (2026-09-22): each one streams, returns tool
+ * calls and produces valid `json_schema` output. Cheapest first, per 1M tokens
+ * in/out at the time of writing. Models that failed one of those three — and so
+ * cannot drive a planned, tool-calling task — are deliberately absent.
+ */
+const DEFAULT_OPENROUTER_MODELS = [
+  "mistralai/mistral-nemo", //                      $0.019 / $0.030
+  "openai/gpt-oss-20b", //                          $0.030 / $0.130
+  "qwen/qwen3-30b-a3b-instruct-2507", //            $0.048 / $0.193
+  "openai/gpt-5-nano", //                           $0.050 / $0.400
+  "mistralai/mistral-small-3.2-24b-instruct", //    $0.094 / $0.250
+  "google/gemini-2.5-flash-lite", //                $0.100 / $0.400
+];
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.url(),
@@ -41,8 +57,32 @@ const envSchema = z.object({
     ),
   /** Display name, so a self-hosted gateway reads as itself. */
   OPENAI_PROVIDER_NAME: optionalString,
+  // OpenRouter (spec §13): the same chat-completions protocol, but a hosted
+  // service with its own key and hundreds of models behind one account. It is
+  // registered separately from OPENAI_* so a LAN gateway and OpenRouter can
+  // both be available at once.
+  /** OpenRouter key (https://openrouter.ai/keys). Unset = the provider is off. */
+  OPENROUTER_API_KEY: optionalString,
+  OPENROUTER_BASE_URL: z.url().default("https://openrouter.ai/api/v1"),
+  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
+  /**
+   * Models offered in the picker (comma-separated). OpenRouter advertises 400+,
+   * so the default is a small verified set: each one streams, calls tools and
+   * honours `json_schema`, which the planner needs. Cheapest first.
+   */
+  OPENROUTER_MODELS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? DEFAULT_OPENROUTER_MODELS.join(","))
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  /** Sent to OpenRouter for app attribution on its rankings. Optional. */
+  OPENROUTER_APP_NAME: optionalString,
   /** Which provider agents use when they do not name one. */
-  DEFAULT_PROVIDER: z.enum(["gemini", "openai-compatible"]).default("gemini"),
+  DEFAULT_PROVIDER: z.enum(["gemini", "openai-compatible", "openrouter"]).default("gemini"),
 
   ALLOW_REGISTRATION: z
     .enum(["true", "false"])

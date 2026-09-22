@@ -111,6 +111,68 @@ describe("getServerEnv", () => {
   });
 });
 
+describe("getProviderRegistry", () => {
+  async function loadRegistry(values: Record<string, string | undefined>) {
+    setEnv({ ...BASE_ENV, ...values });
+    // The registry is cached on globalThis, so a second load in one test needs
+    // that cleared as well as the module graph reset.
+    delete (globalThis as Record<string, unknown>).__aiwProviders;
+    vi.resetModules();
+    const { getProviderRegistry } = await import("../src/providers");
+    return getProviderRegistry();
+  }
+
+  it("registers all three providers, configured or not, so the UI can explain what is missing", async () => {
+    const registry = await loadRegistry({});
+    expect(registry.list().map((p) => p.id)).toEqual(["gemini", "openai-compatible", "openrouter"]);
+    // Nothing is configured in a bare environment, and saying so is the point.
+    expect(registry.list().every((p) => !p.isConfigured())).toBe(true);
+  });
+
+  it("keeps a LAN gateway and OpenRouter side by side under different ids", async () => {
+    const registry = await loadRegistry({
+      OPENAI_BASE_URL: "http://10.0.0.5:8000/v1",
+      OPENAI_MODELS: "local/model-a",
+      OPENAI_PROVIDER_NAME: "Local gateway",
+      OPENROUTER_API_KEY: "sk-or-test",
+    });
+
+    const local = registry.get("openai-compatible");
+    const openrouter = registry.get("openrouter");
+    expect(local?.name).toBe("Local gateway");
+    expect(local?.isConfigured()).toBe(true);
+    expect(openrouter?.name).toBe("OpenRouter");
+    expect(openrouter?.isConfigured()).toBe(true);
+    expect(openrouter).not.toBe(local);
+  });
+
+  it("treats OpenRouter as unconfigured without a key, because its URL has a default", async () => {
+    const registry = await loadRegistry({});
+    expect(registry.get("openrouter")?.isConfigured()).toBe(false);
+  });
+
+  it("offers a verified low-cost model list by default and honours an override", async () => {
+    const byDefault = await loadRegistry({ OPENROUTER_API_KEY: "sk-or-test" });
+    expect(byDefault.get("openrouter")?.defaultModel).toBe("openai/gpt-oss-20b");
+
+    const overridden = await loadRegistry({
+      OPENROUTER_API_KEY: "sk-or-test",
+      OPENROUTER_MODELS: "vendor/one, vendor/two",
+      OPENROUTER_DEFAULT_MODEL: "vendor/one",
+    });
+    expect(overridden.get("openrouter")?.defaultModel).toBe("vendor/one");
+  });
+
+  it("can make OpenRouter the default provider", async () => {
+    const registry = await loadRegistry({ OPENROUTER_API_KEY: "sk-or-test", DEFAULT_PROVIDER: "openrouter" });
+    expect(registry.getDefault().id).toBe("openrouter");
+  });
+
+  it("refuses an unknown DEFAULT_PROVIDER rather than silently picking one", async () => {
+    await expect(loadRegistry({ DEFAULT_PROVIDER: "anthropic" })).rejects.toThrow(/DEFAULT_PROVIDER/);
+  });
+});
+
 describe("getQueueRuntime", () => {
   it("is null without REDIS_URL: single-process mode is the default, not a fallback", async () => {
     setEnv(BASE_ENV);
