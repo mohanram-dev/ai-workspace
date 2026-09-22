@@ -157,7 +157,9 @@ Mobile bottom nav: Chat · Tasks · Agents · Activity · Settings.
 
 The desktop sidebar's `PRIMARY_NAV` lists workspace destinations only. **Settings is deliberately not in it** — account and server configuration lives in the user menu (`components/shell/user-menu.tsx`), which also holds the theme switcher. The mobile bottom bar keeps Settings because there is no persistent user menu there.
 
-The two lists must stay disjoint: the sidebar and the open user menu are visible at the same time, so an entry in both appears twice on one screen. The user menu holds **account-scoped items only** (Settings, Theme, Sign out); a destination that already has a `PRIMARY_NAV` row does not go in it.
+`PRIMARY_NAV`, `MORE_NAV` and the user menu must stay **mutually disjoint**: the sidebar is visible while either menu is open, so an entry in two of them appears twice on one screen. `PRIMARY_NAV` is the always-visible rows, `MORE_NAV` is the sidebar's "More" flyout (set-up-once destinations), and the user menu holds account-scoped items only (Settings, Theme, Sign out).
+
+The "More" flyout opens to the right on desktop and **downwards below `md`**, chosen from `matchMedia`, not left to Radix: inside the mobile sheet an animated ancestor carries a transform, so collision detection measures the wrong box and a right-opening menu ran 176px off a 390px screen instead of flipping.
 
 ---
 
