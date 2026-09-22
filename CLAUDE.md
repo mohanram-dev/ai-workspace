@@ -297,6 +297,7 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | OpenAI-compatible | `OPENAI_BASE_URL` (unset = off), `OPENAI_API_KEY` (optional), `OPENAI_DEFAULT_MODEL`, `OPENAI_MODELS`, `OPENAI_PROVIDER_NAME` |
 | OpenRouter | `OPENROUTER_API_KEY` (unset = off), `OPENROUTER_BASE_URL`, `OPENROUTER_DEFAULT_MODEL`, `OPENROUTER_MODELS`, `OPENROUTER_APP_NAME` |
 | Provider default | `DEFAULT_PROVIDER` (`gemini` \| `openai-compatible` \| `openrouter`). `ROUTER_MODEL` resolves against it, so change them together |
+| Fallback | `MODEL_FALLBACKS` — models tried in order when the chosen one cannot answer; resolved through the registry, so they may span providers |
 | Security | `ALLOW_REGISTRATION` (false), `CHAT_RATE_LIMIT_PER_MINUTE` |
 | Tasks | `MAX_RUNNING_TASKS_PER_USER`, `WORKSPACE_ROOT` (`./data/workspaces`) |
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
@@ -385,6 +386,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 | `decidePermission` semantics | READ free, grants for WRITE/EXECUTE/NETWORK, humans for DESTRUCTIVE. Tests in `packages/agents/test/approvals.test.ts` encode this. |
 | Order in `requestApproval` | Task status is set to `waiting_for_approval` **before** the approval row is created. Reversing it reintroduces a race where a pending approval is visible while the task claims to be running. |
 | Event publish order | `TaskEventRecorder.emit` persists first, then publishes. SSE replay depends on it. |
+| `FALLBACK_CODES` in `runtime.ts` | Which provider failures switch model. `aborted` must stay out (Stop and the execution timeout surface as it, and re-running that work elsewhere ignores them), and a budget stop is a `TaskFailure` so it never reaches the check. `RunState.fallbackModel` makes the switch stick for the rest of the task, and `resolveAgent` copies it back off the routing state — without either, every call pays the dead model's full backoff again. Tests in `packages/agents/test/model-fallback.test.ts`. |
 | `resetUnfinishedSteps` keeping `error` | That error is what "Ask agent to fix" shows the agent. |
 | `BUILTIN_AGENTS` tools | Seeded once per user with `onConflictDoNothing`. **Changing a built-in agent's tools requires a data migration** (see `0013_builtin_agent_tools.sql`), or existing users never get the tool and the agent answers from memory instead of using it. |
 | Shape-based error guards (`isAppError`, `isProviderError`, `isToolError`) | Turbopack can load a workspace package twice, so `instanceof` fails across package boundaries. |

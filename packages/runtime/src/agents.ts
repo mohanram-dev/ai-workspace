@@ -67,6 +67,7 @@ export function getAgentServices(): AgentServices {
       },
       workspaceRoot: getWorkspaceRoot(),
       routerModel: env.ROUTER_MODEL,
+      modelFallbacks: env.MODEL_FALLBACKS,
     });
     // The delegation tool is owned by the runtime (it starts sub-tasks through it);
     // registering it here is what makes it appear when assigning tools to an agent.
