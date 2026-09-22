@@ -4,7 +4,7 @@ import { users } from "./auth";
 import { projects } from "./projects";
 
 export const scheduleTrigger = pgEnum("schedule_trigger", ["cron", "interval", "daily", "weekly", "monthly", "once"]);
-export const scheduleRunStatus = pgEnum("schedule_run_status", ["started", "skipped", "failed"]);
+export const scheduleRunStatus = pgEnum("schedule_run_status", ["started", "completed", "errored", "cancelled", "skipped", "failed"]);
 
 /** A recurring or one-time task an agent runs on its own (spec §26). */
 export const schedules = pgTable(

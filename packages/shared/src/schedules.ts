@@ -4,8 +4,17 @@ import { MAX_MESSAGE_LENGTH } from "./chat";
 export const SCHEDULE_TRIGGERS = ["cron", "interval", "daily", "weekly", "monthly", "once"] as const;
 export type ScheduleTrigger = (typeof SCHEDULE_TRIGGERS)[number];
 
-export const SCHEDULE_RUN_STATUSES = ["started", "skipped", "failed"] as const;
+/**
+ * `started` means the task was launched and is still going. The three outcomes
+ * are written back when it finishes, so a run history answers the question an
+ * unattended schedule actually raises: did it work? `skipped` and `failed` are
+ * the scheduler's own outcomes — the task never started at all.
+ */
+export const SCHEDULE_RUN_STATUSES = ["started", "completed", "errored", "cancelled", "skipped", "failed"] as const;
 export type ScheduleRunStatus = (typeof SCHEDULE_RUN_STATUSES)[number];
+
+/** Run statuses that mean the schedule did not produce a result. */
+export const UNSUCCESSFUL_RUN_STATUSES: readonly ScheduleRunStatus[] = ["errored", "cancelled", "skipped", "failed"];
 
 /** "HH:MM" in the schedule's own timezone. */
 export const timeOfDaySchema = z

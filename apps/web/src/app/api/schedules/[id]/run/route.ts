@@ -23,7 +23,13 @@ export async function POST(request: Request, ctx: RouteContext<"/api/schedules/[
       ...(schedule.model ? { model: schedule.model } : {}),
       ...(schedule.projectId ? { projectId: schedule.projectId } : {}),
     });
-    await updateScheduleForUser(db, user.id, id, { lastRunAt: now, lastTaskId: created.task.id });
+    // runCount covers every run in the history, manual ones included — the
+    // list said "0 run(s)" beside a history holding several.
+    await updateScheduleForUser(db, user.id, id, {
+      lastRunAt: now,
+      lastTaskId: created.task.id,
+      runCount: schedule.runCount + 1,
+    });
     const run = await insertScheduleRun(db, {
       scheduleId: id,
       userId: user.id,

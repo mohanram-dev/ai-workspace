@@ -146,7 +146,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/agents`, `/agents/new`, `/agents/[agentId]` | Agent list and editor (tools, permissions, limits, autonomous mode) |
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
-| `/schedules` | Cron/daily/weekly/monthly/interval/once schedules + run history |
+| `/schedules` | Cron/daily/weekly/monthly/interval/once schedules + run history. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
 | `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
 | `/mcp`, `/mcp/new`, `/mcp/[serverId]` | MCP servers, tool discovery, per-tool permissions |
 | `/activity` | Observability dashboard + live event feed |
@@ -200,7 +200,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Access goes through **repositories** (`src/repositories/*.ts`): `getXForUser(db, userId, id)` is the ownership check; never query a user's rows without the userId filter.
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 14 migrations exist, `0000_init` → `0013_builtin_agent_tools`. Data migrations (like 0013) are hand-written.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 15 migrations exist, `0000_init` → `0014_schedule_run_outcomes`. Data migrations (like 0013) are hand-written.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---
@@ -407,7 +407,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 - Voice input: not built (spec says "later").
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).
 - Browser: no persistent logins across tasks, no file download/upload through the page, follows the newest tab only.
-- Scheduler: no catch-up for runs missed while the server was down; no per-schedule retries.
+- Scheduler: no catch-up policy for a long outage — a schedule due while the server was down fires once on restart and then advances one occurrence per tick until it is current, rather than firing once and skipping the rest. No per-schedule retries.
 - Activity: no export (CSV/Prometheus), no per-project filter, no retention/rollups — events and usage rows are kept forever.
 - Delegation: sequential only (the manager waits for each sub-task); no cross-user delegation; sub-tasks bypass `MAX_RUNNING_TASKS_PER_USER` by design.
 - Worker image is large (Playwright base). Logs go to stdout only.

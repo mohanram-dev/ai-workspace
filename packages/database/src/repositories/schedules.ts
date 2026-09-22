@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
+import type { ScheduleRunStatus } from "@aiw/shared";
 import type { Database } from "../client";
 import { agents, projects, scheduleRuns, schedules } from "../schema";
 
@@ -100,4 +101,24 @@ export async function insertScheduleRun(db: Database, values: NewScheduleRun): P
 
 export async function listScheduleRuns(db: Database, scheduleId: string, limit = 50): Promise<ScheduleRun[]> {
   return db.select().from(scheduleRuns).where(eq(scheduleRuns.scheduleId, scheduleId)).orderBy(desc(scheduleRuns.createdAt)).limit(limit);
+}
+
+/**
+ * Writes a finished task's outcome onto its schedule run, so the run history
+ * says whether the schedule actually produced a result rather than only that
+ * it started. Called for every task that ends; tasks with no schedule run
+ * simply match nothing.
+ */
+export async function finishScheduleRunForTask(
+  db: Database,
+  taskId: string,
+  status: ScheduleRunStatus,
+  detail: string | null,
+): Promise<boolean> {
+  const updated = await db
+    .update(scheduleRuns)
+    .set({ status, ...(detail === null ? {} : { detail }) })
+    .where(and(eq(scheduleRuns.taskId, taskId), eq(scheduleRuns.status, "started")))
+    .returning({ id: scheduleRuns.id });
+  return updated.length > 0;
 }

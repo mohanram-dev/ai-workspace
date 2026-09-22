@@ -8,7 +8,7 @@ import {
   type TaskEventBus,
   type TaskExecutor,
 } from "@aiw/agents";
-import { getDatabase } from "@aiw/database";
+import { finishScheduleRunForTask, getDatabase, getTask, type Database } from "@aiw/database";
 import { getBrowserManager } from "./browser";
 import { getComputerManager } from "./computer";
 import { getServerEnv } from "./env";
@@ -63,7 +63,15 @@ export function getAgentServices(): AgentServices {
           }
         : false,
       onTaskEnd: async (taskId) => {
-        await Promise.all([getBrowserManager().close(taskId), getComputerManager().close(taskId)]);
+        await Promise.all([
+          getBrowserManager().close(taskId),
+          getComputerManager().close(taskId),
+          // A scheduled task's run row says "started" until its outcome is
+          // written here. @aiw/agents knows nothing about schedules, so the
+          // composition root joins the two; a task with no schedule run
+          // matches nothing and this is a no-op.
+          recordScheduleOutcome(db, taskId),
+        ]);
       },
       workspaceRoot: getWorkspaceRoot(),
       routerModel: env.ROUTER_MODEL,
@@ -83,4 +91,15 @@ export function getAgentServices(): AgentServices {
     globalForAgents.__aiwAgents = { approvals, bus, events, runtime, executor, tasks, queued: queue !== null };
   }
   return globalForAgents.__aiwAgents;
+}
+
+/** Maps a finished task's status onto its schedule run, when it has one. */
+async function recordScheduleOutcome(db: Database, taskId: string): Promise<void> {
+  const task = await getTask(db, taskId);
+  if (!task) return;
+  const status =
+    task.status === "completed" ? "completed" : task.status === "cancelled" ? "cancelled" : task.status === "failed" ? "errored" : null;
+  // Paused and interrupted tasks are not finished, so the run stays "started".
+  if (!status) return;
+  await finishScheduleRunForTask(db, taskId, status, task.error?.message ?? null);
 }

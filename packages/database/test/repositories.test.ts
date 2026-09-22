@@ -3,6 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createConversation,
   createDatabase,
+  createSchedule,
+  createTask,
+  finishScheduleRunForTask,
+  insertScheduleRun,
+  listScheduleRuns,
   deleteConversationForUser,
   getConversationForUser,
   insertMessage,
@@ -121,5 +126,64 @@ describe("conversation repository", () => {
       .from(messages)
       .where(eq(messages.conversationId, conversation.id));
     expect(orphaned).toEqual([]);
+  });
+});
+
+describe("schedule run outcomes (spec §26)", () => {
+  async function scheduleWithRun(userId: string) {
+    const schedule = await createSchedule(handle.db, {
+      userId,
+      name: "Morning digest",
+      prompt: "summarise the news",
+      trigger: "daily",
+      timeOfDay: "07:00",
+      timezone: "UTC",
+      nextRunAt: new Date(),
+    });
+    const task = await createTask(handle.db, { userId, prompt: "summarise the news", status: "queued" });
+    const run = await insertScheduleRun(handle.db, {
+      scheduleId: schedule.id,
+      userId,
+      taskId: task.id,
+      status: "started",
+      scheduledFor: new Date(),
+    });
+    return { schedule, task, run };
+  }
+
+  it("writes the outcome onto the run that is still started", async () => {
+    const userId = await createUser();
+    const { schedule, task } = await scheduleWithRun(userId);
+
+    expect(await finishScheduleRunForTask(handle.db, task.id, "completed", null)).toBe(true);
+    expect((await listScheduleRuns(handle.db, schedule.id))[0]).toMatchObject({ status: "completed" });
+  });
+
+  it("records why a run failed, so the history explains itself", async () => {
+    const userId = await createUser();
+    const { schedule, task } = await scheduleWithRun(userId);
+
+    await finishScheduleRunForTask(handle.db, task.id, "errored", "Gemini rate limit or quota exceeded.");
+    expect((await listScheduleRuns(handle.db, schedule.id))[0]).toMatchObject({
+      status: "errored",
+      detail: "Gemini rate limit or quota exceeded.",
+    });
+  });
+
+  it("does not overwrite a run that already has an outcome", async () => {
+    // onTaskEnd can fire more than once for one task (a retry, a recovery
+    // sweep); the first outcome recorded is the one that stands.
+    const userId = await createUser();
+    const { schedule, task } = await scheduleWithRun(userId);
+
+    await finishScheduleRunForTask(handle.db, task.id, "completed", null);
+    expect(await finishScheduleRunForTask(handle.db, task.id, "errored", "late")).toBe(false);
+    expect((await listScheduleRuns(handle.db, schedule.id))[0]).toMatchObject({ status: "completed" });
+  });
+
+  it("is a no-op for a task that no schedule started", async () => {
+    const userId = await createUser();
+    const task = await createTask(handle.db, { userId, prompt: "ad hoc", status: "queued" });
+    expect(await finishScheduleRunForTask(handle.db, task.id, "completed", null)).toBe(false);
   });
 });
