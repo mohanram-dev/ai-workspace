@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentDto, ProjectDto, ScheduleDto, ScheduleRunDto, ScheduleWithRunsDto } from "@aiw/shared";
+import type { AgentDto, ProjectDto, ScheduleDto, ScheduleRunDto, ScheduleRunStatus, ScheduleWithRunsDto } from "@aiw/shared";
 import { CalendarClockIcon, ChevronDownIcon, ChevronRightIcon, Loader2Icon, PlayIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,28 @@ import { cn } from "@/lib/utils";
 import { ScheduleForm } from "./schedule-form";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/**
+ * A run's outcome, not just the fact that it began. "started" used to be
+ * styled as success, which called a failed overnight run green.
+ */
+const RUN_STATUS_LABEL: Record<ScheduleRunStatus, string> = {
+  started: "running",
+  completed: "completed",
+  errored: "failed",
+  cancelled: "cancelled",
+  skipped: "skipped",
+  failed: "not started",
+};
+
+const RUN_STATUS_STYLE: Record<ScheduleRunStatus, string> = {
+  started: "border-brand/40 bg-brand/10",
+  completed: "border-success/40 bg-success/10",
+  errored: "border-destructive/40 text-destructive",
+  cancelled: "border-muted-foreground/30 text-muted-foreground",
+  skipped: "border-warning/40 text-warning",
+  failed: "border-destructive/40 text-destructive",
+};
 
 /** Schedules that run agents on their own, with their run history (spec §26). */
 export function SchedulesPage() {
@@ -231,15 +253,8 @@ export function SchedulesPage() {
                       <ul className="grid gap-1 text-sm">
                         {runs[schedule.id]!.map((run) => (
                           <li key={run.id} className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[0.6rem]",
-                                run.status === "started" && "border-success/40 bg-success/10",
-                                run.status === "failed" && "border-destructive/40 text-destructive",
-                              )}
-                            >
-                              {run.status}
+                            <Badge variant="outline" className={cn("text-[0.6rem]", RUN_STATUS_STYLE[run.status])}>
+                              {RUN_STATUS_LABEL[run.status]}
                             </Badge>
                             <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(run.scheduledFor))}</span>
                             {run.taskId && (
