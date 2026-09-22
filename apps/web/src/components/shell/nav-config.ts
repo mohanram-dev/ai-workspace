@@ -20,19 +20,33 @@ export interface NavItem {
   phase?: number;
 }
 
+/**
+ * The rows always visible in the sidebar: what a session starts from and what
+ * it produces.
+ *
+ * Settings is deliberately absent — account and server configuration lives in
+ * the user menu at the bottom of the sidebar. Listing it in both put two
+ * "Settings" links on one screen.
+ */
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "New Task", icon: SquarePenIcon },
   { href: "/conversations", label: "Conversations", icon: MessagesSquareIcon },
   { href: "/agents", label: "Agents", icon: BotIcon },
   { href: "/projects", label: "Projects", icon: FolderKanbanIcon },
   { href: "/tasks", label: "Tasks", icon: ListChecksIcon },
+];
+
+/**
+ * Destinations behind the sidebar's "More" row: set up once, then visited
+ * occasionally, so they do not need to cost a row each. Must stay disjoint
+ * from `PRIMARY_NAV` — an entry in both would show twice at once, since the
+ * flyout opens beside the list it came from.
+ */
+export const MORE_NAV: NavItem[] = [
   { href: "/schedules", label: "Schedules", icon: CalendarClockIcon },
   { href: "/files", label: "Files", icon: FolderOpenIcon },
   { href: "/mcp", label: "MCP Tools", icon: PlugIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
-  // Settings is deliberately absent: this list is workspace destinations, and
-  // account/server configuration lives in the user menu at the bottom of the
-  // sidebar. Listing it in both put two "Settings" links on one screen.
 ];
 
 export const MOBILE_NAV: NavItem[] = [
