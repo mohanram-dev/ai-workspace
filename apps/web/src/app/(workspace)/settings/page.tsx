@@ -62,16 +62,19 @@ export default async function SettingsPage() {
                   </>
                 ) : (
                   <Badge variant="outline" className="border-warning/40 bg-warning/10 text-foreground">
-                    Not configured — set GEMINI_API_KEY
+                    Not configured — set {provider.id === "gemini" ? "GEMINI_API_KEY" : "OPENAI_BASE_URL"}
                   </Badge>
                 )}
               </div>
             </Row>
           ))}
-          <Row label="OpenAI-compatible, Claude, Ollama">
-            <Badge variant="outline" className="font-mono text-[0.7rem]">
-              NOT IMPLEMENTED
-            </Badge>
+          <Row label="Anthropic native API">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge variant="outline" className="font-mono text-[0.7rem]">
+                NOT IMPLEMENTED
+              </Badge>
+              <span className="text-xs text-muted-foreground">Reachable through an OpenAI-compatible gateway</span>
+            </div>
           </Row>
         </Section>
 
