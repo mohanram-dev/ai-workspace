@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   chatStreamEventSchema,
+  createScheduleSchema,
   deriveConversationTitle,
+  isValidTimeZone,
   listConversationsQuerySchema,
   sendChatMessageSchema,
   updateConversationSchema,
@@ -84,5 +86,33 @@ describe("isAppError", () => {
     expect(isAppError(foreign)).toBe(true);
     expect(isAppError(new Error("x"))).toBe(false);
     expect(isAppError({ name: "AppError", status: 409, code: "conflict" })).toBe(false);
+  });
+});
+
+describe("schedule time zones (spec §26)", () => {
+  it("accepts IANA names, aliases and the abbreviations Intl understands", () => {
+    // Asia/Kolkata is NOT in Intl.supportedValuesOf("timeZone") — that list
+    // carries only the canonical Asia/Calcutta — which is why validation goes
+    // through Intl itself rather than that list.
+    for (const zone of ["Asia/Kolkata", "Asia/Calcutta", "IST", "Europe/London", "UTC", "America/New_York"]) {
+      expect(isValidTimeZone(zone)).toBe(true);
+    }
+  });
+
+  it("refuses a typo or an offset, which would disable the schedule later", () => {
+    // These used to be stored happily and only threw when the next occurrence
+    // was computed — at which point the runner disables the schedule.
+    for (const zone of ["Asia/Kolkatta", "GMT+5:30", "india", "Not/AZone"]) {
+      expect(isValidTimeZone(zone)).toBe(false);
+    }
+  });
+
+  it("rejects an unknown zone at the schema, not at the scheduler", () => {
+    const base = { name: "Digest", prompt: "summarise", trigger: "daily" as const, timeOfDay: "07:00" };
+    expect(createScheduleSchema.safeParse({ ...base, timezone: "Asia/Kolkata" }).success).toBe(true);
+
+    const bad = createScheduleSchema.safeParse({ ...base, timezone: "Asia/Kolkatta" });
+    expect(bad.success).toBe(false);
+    expect(JSON.stringify(bad.error?.issues)).toContain("Unknown time zone");
   });
 });

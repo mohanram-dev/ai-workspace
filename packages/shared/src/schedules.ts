@@ -16,6 +16,27 @@ export type ScheduleRunStatus = (typeof SCHEDULE_RUN_STATUSES)[number];
 /** Run statuses that mean the schedule did not produce a result. */
 export const UNSUCCESSFUL_RUN_STATUSES: readonly ScheduleRunStatus[] = ["errored", "cancelled", "skipped", "failed"];
 
+/**
+ * Whether the runtime knows this time zone.
+ *
+ * Deliberately `Intl` rather than `Intl.supportedValuesOf("timeZone")`, which
+ * lists only canonical names: that list holds "Asia/Calcutta" but not
+ * "Asia/Kolkata", so it would reject the name most people would type. `Intl`
+ * accepts common aliases and abbreviations too ("IST" resolves to
+ * Asia/Calcutta), and rejects what is actually broken — a typo like
+ * "Asia/Kolkatta", or an offset like "GMT+5:30". Those used to be stored
+ * happily and then threw when the next occurrence was computed, which disables
+ * the schedule.
+ */
+export function isValidTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** "HH:MM" in the schedule's own timezone. */
 export const timeOfDaySchema = z
   .string()
@@ -50,8 +71,14 @@ const baseSchedule = {
   agentId: z.uuid().nullish(),
   projectId: z.uuid().nullish(),
   model: z.string().min(1).max(200).nullish(),
-  /** IANA timezone, e.g. "Europe/London". */
-  timezone: z.string().trim().min(1).max(64).default("UTC"),
+  /** IANA timezone, e.g. "Europe/London" or "Asia/Kolkata". */
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .refine(isValidTimeZone, { message: 'Unknown time zone. Use an IANA name such as "Asia/Kolkata" or "Europe/London".' })
+    .default("UTC"),
   enabled: z.boolean().default(true),
   trigger: z.enum(SCHEDULE_TRIGGERS),
   ...triggerFields,
