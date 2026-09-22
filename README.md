@@ -482,7 +482,7 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` `POST` | `/api/projects` | List or create projects |
 | `GET` `PATCH` `DELETE` | `/api/projects/:id` | Read, rename/archive, or delete |
 | `GET` | `/api/files?path=&projectId=` | One folder of a workspace |
-| `GET` | `/api/files/content?path=&projectId=&download=` | File text, or the bytes as a download |
+| `GET` | `/api/files/content?path=&projectId=&download=&raw=` | File text; `raw` serves an image/PDF/audio/video inline for the viewer, `download` serves any file as an attachment |
 | `POST` | `/api/files/upload` | Multipart upload into a workspace folder |
 | `POST` | `/api/files/delete?path=&projectId=` | Remove one file |
 | `GET` `POST` | `/api/memory` | List memories, or store one (`{scope, key, value, …}`) |

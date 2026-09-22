@@ -3,7 +3,7 @@ import path from "node:path";
 import { getDatabase, getProjectForUser } from "@aiw/database";
 import { projectWorkspace } from "@aiw/agents";
 import { isToolError, type Workspace } from "@aiw/tools";
-import type { FileEntryDto, FileListDto } from "@aiw/shared";
+import type { FileContentDto, FileEntryDto, FileListDto } from "@aiw/shared";
 import { HttpError } from "./http";
 import { getWorkspaceRoot } from "./tools";
 
@@ -12,6 +12,51 @@ export const MAX_TEXT_BYTES = 512 * 1024;
 /** Largest upload accepted. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const SKIPPED = new Set([".git", "node_modules", ".next", "dist", "build"]);
+
+/**
+ * Extensions the viewer can render, and the media type each is served with.
+ *
+ * This is an allowlist rather than a lookup of every known type, because these
+ * bytes are user-supplied and served from the app's own origin: a type the
+ * browser will execute (`text/html`, `application/xhtml+xml`) would be stored
+ * XSS against the session. Anything absent is downloaded as
+ * `application/octet-stream` instead, and text files are shown as text, so an
+ * HTML file is still readable — as source.
+ *
+ * SVG is here because the viewer only ever puts it in an `<img>`, where a
+ * browser does not run its scripts; the raw route additionally sends
+ * `Content-Security-Policy: sandbox` so opening the URL directly is inert too.
+ */
+const PREVIEWABLE: Record<string, { mediaType: string; kind: PreviewKind }> = {
+  ".png": { mediaType: "image/png", kind: "image" },
+  ".jpg": { mediaType: "image/jpeg", kind: "image" },
+  ".jpeg": { mediaType: "image/jpeg", kind: "image" },
+  ".gif": { mediaType: "image/gif", kind: "image" },
+  ".webp": { mediaType: "image/webp", kind: "image" },
+  ".avif": { mediaType: "image/avif", kind: "image" },
+  ".bmp": { mediaType: "image/bmp", kind: "image" },
+  ".ico": { mediaType: "image/x-icon", kind: "image" },
+  ".svg": { mediaType: "image/svg+xml", kind: "image" },
+  ".pdf": { mediaType: "application/pdf", kind: "pdf" },
+  ".mp3": { mediaType: "audio/mpeg", kind: "audio" },
+  ".wav": { mediaType: "audio/wav", kind: "audio" },
+  ".ogg": { mediaType: "audio/ogg", kind: "audio" },
+  ".oga": { mediaType: "audio/ogg", kind: "audio" },
+  ".m4a": { mediaType: "audio/mp4", kind: "audio" },
+  ".flac": { mediaType: "audio/flac", kind: "audio" },
+  ".mp4": { mediaType: "video/mp4", kind: "video" },
+  ".m4v": { mediaType: "video/mp4", kind: "video" },
+  ".webm": { mediaType: "video/webm", kind: "video" },
+  ".ogv": { mediaType: "video/ogg", kind: "video" },
+  ".mov": { mediaType: "video/quicktime", kind: "video" },
+};
+
+export type PreviewKind = FileContentDto["kind"];
+
+/** How a file should be previewed, from its extension alone. */
+export function previewFor(name: string): { mediaType: string; kind: PreviewKind } | null {
+  return PREVIEWABLE[path.extname(name).toLowerCase()] ?? null;
+}
 
 /** The workspace a request addresses: the user's own, or one of their projects. */
 export async function resolveWorkspace(userId: string, projectId: string | null | undefined): Promise<{ workspace: Workspace; info: FileListDto["workspace"] }> {
@@ -64,20 +109,42 @@ export async function listDirectory(workspace: Workspace, requested: string): Pr
 
 const BINARY_PATTERN = /\0/;
 
-export async function readTextFile(workspace: Workspace, requested: string) {
+export async function readTextFile(workspace: Workspace, requested: string): Promise<FileContentDto> {
   const absolute = await workspace.resolve(requested, { mustExist: true });
   const stats = await stat(absolute);
   if (stats.isDirectory()) throw new HttpError(400, "bad_request", "That path is a folder, not a file.");
   const base = { path: workspace.relative(absolute), size: stats.size, modifiedAt: stats.mtime.toISOString() };
+
+  // An image, PDF, sound or video is described here and fetched as bytes from
+  // the raw route; its size is the browser's problem, not MAX_TEXT_BYTES'.
+  const preview = previewFor(absolute);
+  if (preview) {
+    return { ...base, text: null, truncated: false, reason: null, kind: preview.kind, mediaType: preview.mediaType };
+  }
+
   if (stats.size > MAX_TEXT_BYTES) {
-    return { ...base, text: null, truncated: true, reason: "The file is too large to show here. Download it instead." };
+    return {
+      ...base,
+      text: null,
+      truncated: true,
+      reason: "The file is too large to show here. Download it instead.",
+      kind: "none",
+      mediaType: null,
+    };
   }
   const buffer = await readFile(absolute);
   const text = buffer.toString("utf8");
   if (BINARY_PATTERN.test(text.slice(0, 4000))) {
-    return { ...base, text: null, truncated: false, reason: "This looks like a binary file. Download it to open it." };
+    return {
+      ...base,
+      text: null,
+      truncated: false,
+      reason: "This file is not text, and its type has no viewer here. Download it to open it.",
+      kind: "none",
+      mediaType: null,
+    };
   }
-  return { ...base, text, truncated: false, reason: null };
+  return { ...base, text, truncated: false, reason: null, kind: "text", mediaType: "text/plain" };
 }
 
 export async function readFileBytes(workspace: Workspace, requested: string) {

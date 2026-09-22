@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { Workspace } from "@aiw/tools";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createTextFile, searchFiles } from "./files";
+import { createTextFile, MAX_TEXT_BYTES, previewFor, readTextFile, searchFiles } from "./files";
 
 let root: string;
 let workspace: Workspace;
@@ -49,5 +49,59 @@ describe("file create (spec §24)", () => {
 
   it("refuses a path outside the workspace", async () => {
     await expect(createTextFile(workspace, "../escape.txt", "x")).rejects.toThrow();
+  });
+});
+
+describe("file preview kinds (spec §24)", () => {
+  it("classifies each viewable type from its extension, case-insensitively", () => {
+    expect(previewFor("photo.PNG")).toEqual({ mediaType: "image/png", kind: "image" });
+    expect(previewFor("a/b/scan.pdf")).toEqual({ mediaType: "application/pdf", kind: "pdf" });
+    expect(previewFor("track.mp3")).toEqual({ mediaType: "audio/mpeg", kind: "audio" });
+    expect(previewFor("clip.webm")).toEqual({ mediaType: "video/webm", kind: "video" });
+    expect(previewFor("logo.svg")).toEqual({ mediaType: "image/svg+xml", kind: "image" });
+  });
+
+  it("refuses types the browser would execute, so a workspace file cannot become stored XSS", () => {
+    // These are all served as downloads instead; the viewer shows their source
+    // as text, which is why nothing is lost by keeping them out.
+    for (const name of ["page.html", "page.htm", "doc.xhtml", "app.js", "data.xml", "sheet.xsl"]) {
+      expect(previewFor(name)).toBeNull();
+    }
+  });
+
+  it("refuses anything not on the allowlist rather than guessing a type", () => {
+    expect(previewFor("archive.zip")).toBeNull();
+    expect(previewFor("notes.md")).toBeNull();
+    expect(previewFor("noextension")).toBeNull();
+    expect(previewFor("trick.png.exe")).toBeNull();
+  });
+
+  it("describes a binary it can show without reading it as text", async () => {
+    // A PNG header followed by a NUL byte: text reading would call it binary.
+    await writeFile(path.join(workspace.root, "pic.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]));
+    const result = await readTextFile(workspace, "pic.png");
+    expect(result).toMatchObject({ kind: "image", mediaType: "image/png", text: null, reason: null });
+  });
+
+  it("still reads a text file as text", async () => {
+    await writeFile(path.join(workspace.root, "notes.md"), "# hello\n");
+    expect(await readTextFile(workspace, "notes.md")).toMatchObject({ kind: "text", text: "# hello\n", mediaType: "text/plain" });
+  });
+
+  it("says why an unviewable binary cannot be shown instead of showing nothing", async () => {
+    await writeFile(path.join(workspace.root, "blob.bin"), Buffer.from([0x00, 0x01, 0x02]));
+    const result = await readTextFile(workspace, "blob.bin");
+    expect(result.kind).toBe("none");
+    expect(result.text).toBeNull();
+    expect(result.reason).toMatch(/Download it/);
+  });
+
+  it("does not apply the text size cap to a previewable binary", async () => {
+    // A 600KB image is past MAX_TEXT_BYTES but perfectly fine for an <img>.
+    await writeFile(path.join(workspace.root, "big.jpg"), Buffer.alloc(MAX_TEXT_BYTES + 1024, 1));
+    expect(await readTextFile(workspace, "big.jpg")).toMatchObject({ kind: "image", truncated: false });
+
+    await writeFile(path.join(workspace.root, "big.log"), "x".repeat(MAX_TEXT_BYTES + 1));
+    expect(await readTextFile(workspace, "big.log")).toMatchObject({ kind: "none", truncated: true });
   });
 });

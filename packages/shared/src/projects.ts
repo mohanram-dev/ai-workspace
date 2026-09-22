@@ -97,10 +97,17 @@ export interface FileContentDto {
   path: string;
   size: number;
   modifiedAt: string;
-  /** Null when the file is binary or too large to show. */
+  /** Null unless `kind` is "text"; binary previews are fetched as bytes instead. */
   text: string | null;
   truncated: boolean;
   reason: string | null;
+  /**
+   * How the viewer should render this file. "none" means it can only be
+   * downloaded, and `reason` says why.
+   */
+  kind: "text" | "image" | "pdf" | "audio" | "video" | "none";
+  /** Media type for the raw route, when `kind` is not "text" or "none". */
+  mediaType: string | null;
 }
 
 export const fileSearchQuerySchema = z.object({

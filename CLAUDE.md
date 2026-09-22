@@ -147,7 +147,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
 | `/schedules` | Cron/daily/weekly/monthly/interval/once schedules + run history |
-| `/files` | Workspace browser: upload, view, search, create, download, delete |
+| `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
 | `/mcp`, `/mcp/new`, `/mcp/[serverId]` | MCP servers, tool discovery, per-tool permissions |
 | `/activity` | Observability dashboard + live event feed |
 | `/settings` | Providers, account |
@@ -273,6 +273,7 @@ No external state library. Patterns in use:
 1. Model API keys and secrets exist only on the server (`getServerEnv()`); nothing under `src/features` or `src/components` may read them.
 2. Every mutation route calls `assertSameOrigin`; every route calls `requireApiSession`; every row access is scoped by `user.id`.
 3. **Path traversal**: all file access goes through `Workspace.resolve()` (`@aiw/tools`), which confines paths to the user's/project's workspace. Uploaded names are sanitised (`safeFileName`).
+   **Serving workspace bytes inline** (`/api/files/content?raw=1`) is limited to the `PREVIEWABLE` allowlist in `server/files.ts`, always with the allowlist's own media type, never a sniffed one — a type the browser executes (`text/html`, `.js`, `.xhtml`) would be stored XSS on this origin. That route also carries its own `Content-Security-Policy: sandbox; default-src 'none'` from `next.config.ts`: a route handler cannot set it, because Next replaces a header the global rule already defines, and the app's own policy allows `script-src 'unsafe-inline'`, which would let a directly-opened SVG run.
 4. **SSRF**: `web.fetch`, MCP http, GitHub and the browser use socket-level DNS checks that refuse private/loopback addresses (re-checked on redirects); the browser goes through a local egress proxy. The `*_ALLOW_PRIVATE_NETWORK` flags are off by default.
 5. **Terminal / SSH / Docker** run as the server's OS user — **not a sandbox**. Off by default; `terminal.run` uses an allowlist and `shell: false`; commands are classified and destructive ones need approval; `ssh.run` can only reach hosts named in `SSH_HOSTS`; Docker container args are validated as plain identifiers.
 6. **DESTRUCTIVE** always needs a human unless approved-for-task or autonomously trusted; `terminal.run`/`ssh.run` are never trustable (`NEVER_AUTONOMOUS`). Autonomous actions are audited.
