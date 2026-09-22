@@ -70,7 +70,16 @@ const nextConfig: NextConfig = {
   ],
   serverExternalPackages: ["postgres", "playwright-core", "ioredis", "bullmq"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Workspace files are served from this origin for the viewer (images,
+      // PDFs, media). A route handler cannot weaken the rule above — Next
+      // replaces a same-named header — and the app's own policy allows
+      // `script-src 'unsafe-inline'`, which would let a directly-opened SVG
+      // run its script on this origin. This rule is more specific, so it wins
+      // here and makes that response inert wherever it is opened.
+      { source: "/api/files/content", headers: [{ key: "Content-Security-Policy", value: "sandbox; default-src 'none'" }] },
+    ];
   },
 };
 

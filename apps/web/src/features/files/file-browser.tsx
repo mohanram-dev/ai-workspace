@@ -267,13 +267,51 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
               Close
             </Button>
           </div>
-          {selected.text === null ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">{selected.reason}</p>
-          ) : (
-            <pre className="scrollbar-thin max-h-96 overflow-auto px-3 py-2 font-mono text-[0.7rem] leading-5 whitespace-pre-wrap">{selected.text}</pre>
-          )}
+          <FilePreview file={selected} rawSrc={`/api/files/content?path=${encodeURIComponent(selected.path)}${query}&raw=1`} />
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * Renders a selected file according to the kind the server decided (spec §24).
+ * Text arrives in the DTO; images, PDFs, sound and video are fetched as bytes
+ * from the raw route, which serves only an allowlist of types and sandboxes
+ * them. Anything else says plainly that it cannot be shown and why.
+ */
+function FilePreview({ file, rawSrc }: { file: FileContentDto; rawSrc: string }) {
+  switch (file.kind) {
+    case "text":
+      return (
+        <pre className="scrollbar-thin max-h-96 overflow-auto px-3 py-2 font-mono text-[0.7rem] leading-5 whitespace-pre-wrap">
+          {file.text}
+        </pre>
+      );
+    case "image":
+      return (
+        <div className="flex max-h-96 justify-center overflow-auto bg-muted/30 p-3">
+          {/* Not next/image: these are private, per-user files behind auth, so
+              they must not go through the image optimiser's cache. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={rawSrc} alt={file.path} className="max-h-90 max-w-full rounded object-contain" />
+        </div>
+      );
+    case "pdf":
+      return <iframe src={rawSrc} title={file.path} className="h-96 w-full rounded-b-lg border-0 bg-muted/30" />;
+    case "audio":
+      return (
+        <div className="px-3 py-4">
+          <audio src={rawSrc} controls className="w-full" />
+        </div>
+      );
+    case "video":
+      return (
+        <div className="flex justify-center bg-muted/30 p-3">
+          <video src={rawSrc} controls className="max-h-96 max-w-full rounded" />
+        </div>
+      );
+    default:
+      return <p className="px-3 py-4 text-sm text-muted-foreground">{file.reason}</p>;
+  }
 }
