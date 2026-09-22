@@ -7,13 +7,20 @@ const optionalString = z.preprocess((v) => (v === "" ? undefined : v), z.string(
 /**
  * Low-cost OpenRouter models offered when `OPENROUTER_MODELS` is not set.
  * Verified against the live API (2026-09-22): each one streams, returns tool
- * calls and produces valid `json_schema` output. Cheapest first, per 1M tokens
- * in/out at the time of writing. Models that failed one of those three — and so
- * cannot drive a planned, tool-calling task — are deliberately absent.
+ * calls and produces valid `json_schema` output on the app's real router
+ * prompt. Cheapest first, per 1M tokens in/out at the time of writing.
+ *
+ * Excluded after failing that check: `google/gemma-3-4b-it` and
+ * `google/gemma-3-12b-it` (tool argument came back as the string `{}`),
+ * `inception/mercury-2.5` (no tool call at all), `nvidia/nemotron-3-super-120b-a12b:free`
+ * (emitted its reasoning in place of the JSON answer), and `openai/gpt-oss-20b`,
+ * which answers a short prompt but returns **empty content** on the 8-agent
+ * router prompt — 94 output tokens, all of them reasoning, `finish_reason:
+ * "stop"`. That is a silent failure: every task falls back to the general
+ * agent. Cheap is worthless if the planner cannot parse the reply.
  */
 const DEFAULT_OPENROUTER_MODELS = [
   "mistralai/mistral-nemo", //                      $0.019 / $0.030
-  "openai/gpt-oss-20b", //                          $0.030 / $0.130
   "qwen/qwen3-30b-a3b-instruct-2507", //            $0.048 / $0.193
   "openai/gpt-5-nano", //                           $0.050 / $0.400
   "mistralai/mistral-small-3.2-24b-instruct", //    $0.094 / $0.250
@@ -64,7 +71,12 @@ const envSchema = z.object({
   /** OpenRouter key (https://openrouter.ai/keys). Unset = the provider is off. */
   OPENROUTER_API_KEY: optionalString,
   OPENROUTER_BASE_URL: z.url().default("https://openrouter.ai/api/v1"),
-  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
+  /**
+   * Default model. Not the very cheapest on purpose: mistral-nemo is a 12B
+   * model that routes and chats correctly but is weak at multi-step planning,
+   * which is most of what an agent here does.
+   */
+  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("qwen/qwen3-30b-a3b-instruct-2507"),
   /**
    * Models offered in the picker (comma-separated). OpenRouter advertises 400+,
    * so the default is a small verified set: each one streams, calls tools and

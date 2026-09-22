@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateCostUsd, ProviderRegistry, type ModelInfo, type ModelProvider } from "../src";
+import { estimateCostUsd, ProviderError, ProviderRegistry, type ModelInfo, type ModelProvider } from "../src";
 
 function fakeProvider(overrides: Partial<ModelProvider> & { models?: string[] } = {}): ModelProvider {
   const models: ModelInfo[] = (overrides.models ?? ["model-a", "model-b"]).map((id) => ({
@@ -41,6 +41,85 @@ describe("ProviderRegistry", () => {
     expect((await registry.resolveModel("model-b")).model).toBe("model-b");
     await expect(registry.resolveModel("../../etc/passwd")).rejects.toMatchObject({
       code: "model_not_found",
+    });
+  });
+
+  describe("a model that belongs to another provider", () => {
+    // An agent carries a provider, but the model can be chosen per task. The
+    // agent's provider is therefore where to look first, not a veto: this is
+    // the failure where picking an OpenRouter model for a Gemini-pinned agent
+    // failed the task with model_not_found.
+    const gemini = () => fakeProvider({ id: "gemini", name: "Gemini", defaultModel: "gemini-flash", models: ["gemini-flash", "gemini-pro"] });
+    const router = () => fakeProvider({ id: "openrouter", name: "OpenRouter", defaultModel: "qwen/qwen3", models: ["qwen/qwen3", "mistralai/mistral-nemo"] });
+
+    it("finds the provider that offers it", async () => {
+      const registry = new ProviderRegistry([gemini(), router()], "gemini");
+      const resolved = await registry.resolveModel("mistralai/mistral-nemo", "gemini");
+      expect(resolved.provider.id).toBe("openrouter");
+      expect(resolved.model).toBe("mistralai/mistral-nemo");
+    });
+
+    it("matches another provider's default model without listing its models", async () => {
+      let listed = false;
+      const registry = new ProviderRegistry(
+        [gemini(), fakeProvider({ id: "openrouter", defaultModel: "qwen/qwen3", listModels: async () => ((listed = true), []) })],
+        "gemini",
+      );
+      expect((await registry.resolveModel("qwen/qwen3", "gemini")).provider.id).toBe("openrouter");
+      expect(listed).toBe(false);
+    });
+
+    it("prefers the named provider when both offer the model", async () => {
+      const shared = ["shared-model"];
+      const registry = new ProviderRegistry(
+        [fakeProvider({ id: "gemini", defaultModel: "g", models: shared }), fakeProvider({ id: "openrouter", defaultModel: "o", models: shared })],
+        "openrouter",
+      );
+      expect((await registry.resolveModel("shared-model", "gemini")).provider.id).toBe("gemini");
+    });
+
+    it("prefers the default provider when several others offer it", async () => {
+      const registry = new ProviderRegistry(
+        [
+          fakeProvider({ id: "gemini", defaultModel: "g", models: ["g"] }),
+          fakeProvider({ id: "local", defaultModel: "l", models: ["l", "shared"] }),
+          fakeProvider({ id: "openrouter", defaultModel: "o", models: ["o", "shared"] }),
+        ],
+        "openrouter",
+      );
+      expect((await registry.resolveModel("shared", "gemini")).provider.id).toBe("openrouter");
+    });
+
+    it("skips providers that are not configured", async () => {
+      const registry = new ProviderRegistry(
+        [gemini(), fakeProvider({ id: "openrouter", defaultModel: "qwen/qwen3", models: ["mistralai/mistral-nemo"], isConfigured: () => false })],
+        "gemini",
+      );
+      await expect(registry.resolveModel("mistralai/mistral-nemo", "gemini")).rejects.toMatchObject({ code: "model_not_found" });
+    });
+
+    it("keeps searching when one provider's model list cannot be read", async () => {
+      const broken = fakeProvider({
+        id: "local",
+        defaultModel: "l",
+        listModels: async () => {
+          throw new Error("gateway down");
+        },
+      });
+      const registry = new ProviderRegistry([gemini(), broken, router()], "gemini");
+      expect((await registry.resolveModel("mistralai/mistral-nemo", "gemini")).provider.id).toBe("openrouter");
+    });
+
+    it("still reports a failure of the named provider itself, not model_not_found", async () => {
+      const failing = fakeProvider({
+        id: "gemini",
+        defaultModel: "gemini-flash",
+        listModels: async () => {
+          throw new ProviderError("authentication", "Gemini rejected the API key.", { provider: "gemini" });
+        },
+      });
+      const registry = new ProviderRegistry([failing, router()], "gemini");
+      await expect(registry.resolveModel("gemini-pro", "gemini")).rejects.toMatchObject({ code: "authentication" });
     });
   });
 

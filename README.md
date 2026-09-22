@@ -394,12 +394,12 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `OPENAI_PROVIDER_NAME` | no | `OpenAI-compatible` | Display name in the UI |
 | `OPENROUTER_API_KEY` | no | — | OpenRouter key ([openrouter.ai/keys](https://openrouter.ai/keys)). Unset = the provider is off |
 | `OPENROUTER_BASE_URL` | no | `https://openrouter.ai/api/v1` | Override only for a proxy in front of OpenRouter |
-| `OPENROUTER_DEFAULT_MODEL` | no | `openai/gpt-oss-20b` | Model used when none is chosen |
+| `OPENROUTER_DEFAULT_MODEL` | no | `qwen/qwen3-30b-a3b-instruct-2507` | Model used when none is chosen |
 | `OPENROUTER_MODELS` | no | a verified low-cost set | Models offered in the picker; OpenRouter advertises 400+ |
 | `OPENROUTER_APP_NAME` | no | — | Name OpenRouter attributes usage to on its rankings |
 | `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini`, `openai-compatible` or `openrouter` |
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |
-| `ROUTER_MODEL` | no | `GEMINI_DEFAULT_MODEL` | Model used by the automatic agent router |
+| `ROUTER_MODEL` | no | the default provider's default model | Model used by the automatic agent router; must be one `DEFAULT_PROVIDER` offers |
 | `MAX_RUNNING_TASKS_PER_USER` | no | `3` | Concurrent agent tasks allowed per user |
 | `ALLOW_REGISTRATION` | no | `false` | Allow sign-ups after the first (admin) account |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | no | `20` | Per-user chat request limit |
