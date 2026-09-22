@@ -41,6 +41,56 @@ describe("OpenAICompatibleProvider configuration", () => {
     expect(provider(fetch, { name: "Home GPU" }).name).toBe("Home GPU");
   });
 
+  it("takes an id so two such servers can be registered at once", () => {
+    expect(provider(fetch).id).toBe("openai-compatible");
+    expect(provider(fetch, { id: "openrouter" }).id).toBe("openrouter");
+    // A blank id is a configuration slip, not a request for an empty key.
+    expect(provider(fetch, { id: "  " }).id).toBe("openai-compatible");
+  });
+
+  it("needs a key when the operator says the service requires one", () => {
+    // OpenRouter: the URL has a default, so only the key decides.
+    expect(provider(fetch, { requiresApiKey: true, apiKey: undefined }).isConfigured()).toBe(false);
+    expect(provider(fetch, { requiresApiKey: true }).isConfigured()).toBe(true);
+  });
+
+  it("reports not_configured instead of calling a service that will reject it", async () => {
+    let called = false;
+    const spy: typeof fetch = async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    };
+    const error = await provider(spy, { requiresApiKey: true, apiKey: undefined })
+      .listModels()
+      .catch((e: unknown) => e);
+    expect(isProviderError(error) && error.code).toBe("not_configured");
+    expect(called).toBe(false);
+  });
+
+  it("sends extra headers, which is how OpenRouter attributes an app", async () => {
+    const seen: RequestInit[] = [];
+    const spy: typeof fetch = async (_url, init) => {
+      seen.push(init!);
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    };
+    await provider(spy, { extraHeaders: { "HTTP-Referer": "http://localhost:3000", "X-Title": "AI Workspace" } }).listModels();
+    const headers = seen[0]!.headers as Record<string, string>;
+    expect(headers["HTTP-Referer"]).toBe("http://localhost:3000");
+    expect(headers["X-Title"]).toBe("AI Workspace");
+    // The key still wins: an extra header cannot overwrite authentication.
+    expect(headers.Authorization).toBe("Bearer sk-test");
+  });
+
+  it("does not let an extra header replace the bearer token", async () => {
+    const seen: RequestInit[] = [];
+    const spy: typeof fetch = async (_url, init) => {
+      seen.push(init!);
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    };
+    await provider(spy, { extraHeaders: { Authorization: "Bearer attacker" } }).listModels();
+    expect((seen[0]!.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
+  });
+
   it("sends the key as a bearer token, and omits the header when there is none", async () => {
     const seen: RequestInit[] = [];
     const spy: typeof fetch = async (_url, init) => {
@@ -155,6 +205,20 @@ describe("streamChat", () => {
       ),
     );
     expect(textOf(await collect(p.streamChat({ model: "m", messages: [] })))).toBe("42");
+  });
+
+  it("drops thinking under OpenRouter's spelling too (`reasoning`, not `reasoning_content`)", async () => {
+    const p = provider(async () =>
+      streamResponse(
+        sse([
+          { choices: [{ delta: { content: "", reasoning: "Let me think about the folder…" } }] },
+          { choices: [{ delta: { reasoning: " still thinking" } }] },
+          { choices: [{ delta: { content: "tidied" } }] },
+          { choices: [{ delta: {}, finish_reason: "stop" }] },
+        ]),
+      ),
+    );
+    expect(textOf(await collect(p.streamChat({ model: "m", messages: [] })))).toBe("tidied");
   });
 
   it("survives a malformed frame and \\r\\n framing from a proxy", async () => {

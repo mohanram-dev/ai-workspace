@@ -220,7 +220,8 @@ Browser (Next.js client)
    ▼
 Next.js route handlers ── Better Auth (sessions, rate limits)
    │
-   ├── chat service ── ProviderRegistry ── GeminiProvider ──► Gemini API
+   ├── chat service ── ProviderRegistry ─┬─ GeminiProvider ─────────► Gemini API
+   │                                     └─ OpenAICompatibleProvider ─► a local gateway, OpenRouter, …
    │
    └── repositories (Drizzle) ──► PostgreSQL
 ```
@@ -391,9 +392,14 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `OPENAI_DEFAULT_MODEL` | no | first of `OPENAI_MODELS` | Model used when none is chosen |
 | `OPENAI_MODELS` | no | — | Models offered in the picker; a gateway may advertise hundreds |
 | `OPENAI_PROVIDER_NAME` | no | `OpenAI-compatible` | Display name in the UI |
-| `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini` or `openai-compatible` |
+| `OPENROUTER_API_KEY` | no | — | OpenRouter key ([openrouter.ai/keys](https://openrouter.ai/keys)). Unset = the provider is off |
+| `OPENROUTER_BASE_URL` | no | `https://openrouter.ai/api/v1` | Override only for a proxy in front of OpenRouter |
+| `OPENROUTER_DEFAULT_MODEL` | no | `qwen/qwen3.7-flash` | Model used when none is chosen |
+| `OPENROUTER_MODELS` | no | `qwen/qwen3.7-flash`, `openai/gpt-oss-120b` | Models offered in the picker; OpenRouter advertises 400+ |
+| `OPENROUTER_APP_NAME` | no | — | Name OpenRouter attributes usage to on its rankings |
+| `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini`, `openai-compatible` or `openrouter` |
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |
-| `ROUTER_MODEL` | no | `GEMINI_DEFAULT_MODEL` | Model used by the automatic agent router |
+| `ROUTER_MODEL` | no | the default provider's default model | Model used by the automatic agent router; must be one `DEFAULT_PROVIDER` offers |
 | `MAX_RUNNING_TASKS_PER_USER` | no | `3` | Concurrent agent tasks allowed per user |
 | `ALLOW_REGISTRATION` | no | `false` | Allow sign-ups after the first (admin) account |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | no | `20` | Per-user chat request limit |

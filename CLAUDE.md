@@ -28,7 +28,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 | Validation | Zod 4 (shared schemas used by both server and client) | `zod 4.6.4` |
 | Database | PostgreSQL 17, Drizzle ORM + postgres-js | `drizzle-orm 0.45.2` |
 | Auth | Better Auth (email + password, Drizzle adapter) | `better-auth 1.7.4` |
-| AI | `@google/genai` (Gemini) and any OpenAI-compatible server (vLLM, Ollama, LiteLLM, OpenRouter, self-hosted gateways). Provider abstraction in `packages/ai` | |
+| AI | `@google/genai` (Gemini) and any OpenAI-compatible server (vLLM, Ollama, LiteLLM, self-hosted gateways) — registered twice: once as `openai-compatible` for a gateway you run, once as `openrouter`. Provider abstraction in `packages/ai` | |
 | Queue | Redis + BullMQ (optional worker tier) | `bullmq 6.3.4`, `ioredis 6.0.0` |
 | Browser agent | playwright-core (Chromium) behind a local SSRF egress proxy | `playwright-core 1.63.0` |
 | Scheduler | cron-parser + timezone maths | |
@@ -287,7 +287,9 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | --- | --- |
 | Required | `DATABASE_URL`, `APP_URL` (must match the served origin), `BETTER_AUTH_SECRET` (≥ 32 chars) |
 | Gemini | `GEMINI_API_KEY`, `GEMINI_DEFAULT_MODEL`, `GEMINI_MODELS`, `ROUTER_MODEL` |
-| OpenAI-compatible | `OPENAI_BASE_URL` (unset = off), `OPENAI_API_KEY` (optional), `OPENAI_DEFAULT_MODEL`, `OPENAI_MODELS`, `OPENAI_PROVIDER_NAME`, `DEFAULT_PROVIDER` |
+| OpenAI-compatible | `OPENAI_BASE_URL` (unset = off), `OPENAI_API_KEY` (optional), `OPENAI_DEFAULT_MODEL`, `OPENAI_MODELS`, `OPENAI_PROVIDER_NAME` |
+| OpenRouter | `OPENROUTER_API_KEY` (unset = off), `OPENROUTER_BASE_URL`, `OPENROUTER_DEFAULT_MODEL`, `OPENROUTER_MODELS`, `OPENROUTER_APP_NAME` |
+| Provider default | `DEFAULT_PROVIDER` (`gemini` \| `openai-compatible` \| `openrouter`). `ROUTER_MODEL` resolves against it, so change them together |
 | Security | `ALLOW_REGISTRATION` (false), `CHAT_RATE_LIMIT_PER_MINUTE` |
 | Tasks | `MAX_RUNNING_TASKS_PER_USER`, `WORKSPACE_ROOT` (`./data/workspaces`) |
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
@@ -307,7 +309,8 @@ Known quirk of this dev machine: `WEB_SEARCH_MODEL` is deliberately `gemini-2.5-
 
 ## 17. External services
 
-- **Any OpenAI-compatible server** (`OPENAI_BASE_URL`): streaming, tool calls and `json_schema` structured output. Its base URL is **operator configuration**, so a private/LAN address is expected there and does not weaken the SSRF guards on `web.fetch`, MCP and the browser, which take untrusted input. Reasoning models return `reasoning_content` — never emit it as answer text. Tool-call arguments arrive as streamed fragments and must be accumulated before use.
+- **Any OpenAI-compatible server** (`OPENAI_BASE_URL`): streaming, tool calls and `json_schema` structured output. Its base URL is **operator configuration**, so a private/LAN address is expected there and does not weaken the SSRF guards on `web.fetch`, MCP and the browser, which take untrusted input. Reasoning models put thinking in `reasoning_content` (vLLM/NIM) or `reasoning` (OpenRouter) — never emit either as answer text. Tool-call arguments arrive as streamed fragments and must be accumulated before use.
+- **OpenRouter** (`OPENROUTER_API_KEY`): the same provider class with `id: "openrouter"` and `requiresApiKey: true`, because its base URL has a default and only the key decides whether it is usable. `OPENROUTER_MODELS` defaults to a set verified live against the API — every entry streams, calls tools **and** honours `json_schema` **on the app's real 8-agent router prompt**; the comment above the list in `env.ts` names each excluded model and what it failed. Watch for a model that returns `finish_reason: "stop"` with **empty content** because reasoning ate the whole budget (`openai/gpt-oss-20b` does this): nothing errors, routing just silently falls back to the general agent. An id the account cannot use comes back as `invalid_request` with OpenRouter's own sentence.
 - **Google Gemini** (`@google/genai`): chat, planning, routing, tool calling, grounded search. Tool-result **images must be nested inside `functionResponse.parts`** (siblings leak stray tokens); user images are `inlineData` parts after the text; function names are sanitised to `[a-zA-Z0-9_]`, ≤ 64 chars; thought signatures must be echoed back with function calls.
 - **GitHub REST API** (read-only tools), **Docker CLI**, **ssh** client, **SearXNG** (optional), **MCP servers** the user configures.
 - **PostgreSQL**, **Redis** (optional).
@@ -371,6 +374,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 | --- | --- |
 | `docs/spec.md` | Verbatim record of the original specification. Never edit. |
 | `NEVER_AUTONOMOUS` (`@aiw/shared`) | The security floor for autonomous mode. Extending it is fine; removing an entry needs the owner's explicit decision. |
+| `ProviderRegistry.resolveModel` cross-provider search | An explicitly chosen model is looked up on the named provider first, then on the other configured ones (default provider first). Without it, picking a model from a provider the agent is not pinned to fails every task with `model_not_found`. Tests in `packages/ai/test/registry.test.ts` encode the order. |
 | `decidePermission` semantics | READ free, grants for WRITE/EXECUTE/NETWORK, humans for DESTRUCTIVE. Tests in `packages/agents/test/approvals.test.ts` encode this. |
 | Order in `requestApproval` | Task status is set to `waiting_for_approval` **before** the approval row is created. Reversing it reintroduces a race where a pending approval is visible while the task claims to be running. |
 | Event publish order | `TaskEventRecorder.emit` persists first, then publishes. SSE replay depends on it. |
@@ -389,7 +393,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 ## 22. Known limitations / issues
 
 - **No sandbox** for `terminal.run`, `ssh.run`, Docker tools or the browser: they run as the process user (inside the worker container in production, which limits blast radius but is not isolation). This is the one genuine security gap; all three tool groups are off by default because of it.
-- Providers: **Gemini** and **OpenAI-compatible** (any server speaking chat-completions). The Anthropic native API is not implemented; use a gateway. A gateway's `/models` may list hundreds of entries, so set `OPENAI_MODELS` to keep the picker usable.
+- Providers: **Gemini**, **OpenAI-compatible** and **OpenRouter**. The Anthropic native API is not implemented natively; reach Claude models through OpenRouter or another gateway. A gateway's `/models` may list hundreds of entries (OpenRouter: 400+), so set `OPENAI_MODELS` / `OPENROUTER_MODELS` to keep the picker usable.
 - **S3** storage is not implemented (owner's decision: local disk under `WORKSPACE_ROOT`).
 - Voice input: not built (spec says "later").
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).

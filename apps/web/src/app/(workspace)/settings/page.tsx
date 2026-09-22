@@ -4,6 +4,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/features/auth/sign-out-button";
 import Link from "next/link";
+import { getAgentServices } from "@/server/agents";
 import { getServerEnv } from "@/server/env";
 import { getBrowserManager } from "@/server/browser";
 import { getComputerManager } from "@/server/computer";
@@ -14,10 +15,20 @@ import { requirePageSession } from "@/server/session";
 
 export const metadata: Metadata = { title: "Settings" };
 
+/** The one variable that turns each provider on, named so the fix is obvious. */
+const SETUP_ENV_VAR: Record<string, string> = {
+  gemini: "GEMINI_API_KEY",
+  "openai-compatible": "OPENAI_BASE_URL",
+  openrouter: "OPENROUTER_API_KEY",
+};
+
 export default async function SettingsPage() {
   const { user } = await requirePageSession();
   const env = getServerEnv();
-  const providers = getProviderRegistry().list();
+  const registry = getProviderRegistry();
+  const providers = registry.list();
+  const defaultProvider = registry.getDefault();
+  const { queued } = getAgentServices();
 
   return (
     <div className="scrollbar-thin flex-1 overflow-y-auto">
@@ -62,7 +73,7 @@ export default async function SettingsPage() {
                   </>
                 ) : (
                   <Badge variant="outline" className="border-warning/40 bg-warning/10 text-foreground">
-                    Not configured — set {provider.id === "gemini" ? "GEMINI_API_KEY" : "OPENAI_BASE_URL"}
+                    Not configured — set {SETUP_ENV_VAR[provider.id] ?? "the provider's credentials"}
                   </Badge>
                 )}
               </div>
@@ -146,10 +157,21 @@ export default async function SettingsPage() {
           <Row label="Public registration">{env.ALLOW_REGISTRATION ? "Enabled" : "Disabled"}</Row>
           <Row label="Chat and task rate limit">{env.CHAT_RATE_LIMIT_PER_MINUTE} requests / minute per user</Row>
           <Row label="Router model">
-            <span className="font-mono text-xs">{env.ROUTER_MODEL ?? `${env.GEMINI_DEFAULT_MODEL} (default)`}</span>
+            {/*
+              ROUTER_MODEL is resolved against the default provider, not against
+              Gemini, so naming GEMINI_DEFAULT_MODEL here was wrong as soon as
+              DEFAULT_PROVIDER pointed anywhere else.
+            */}
+            <span className="font-mono text-xs">
+              {env.ROUTER_MODEL ?? `${defaultProvider.defaultModel} (${defaultProvider.name} default)`}
+            </span>
           </Row>
           <Row label="Running tasks per user">{env.MAX_RUNNING_TASKS_PER_USER}</Row>
-          <Row label="Task execution">In-process (single server). Queue-based workers arrive in Phase 12.</Row>
+          <Row label="Task execution">
+            {queued
+              ? `Queued (BullMQ). Agents run in the worker tier, ${env.WORKER_CONCURRENCY} at a time per worker.`
+              : "In-process: this server runs the agents itself. Set REDIS_URL to hand them to the worker tier."}
+          </Row>
         </Section>
       </div>
     </div>

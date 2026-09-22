@@ -15,10 +15,24 @@ const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
 const ZERO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
 export interface OpenAICompatibleProviderOptions {
+  /**
+   * Registry id. Defaults to `openai-compatible`. Set it when more than one
+   * such server is registered (a LAN gateway *and* OpenRouter, say), because
+   * the registry is keyed by id and agents store the id they were given.
+   */
+  id?: string | undefined;
   /** Base URL including the version path, e.g. https://host/v1. Unset = not configured. */
   baseUrl: string | undefined;
   /** Bearer token. Optional: local gateways such as Ollama accept requests without one. */
   apiKey?: string | undefined;
+  /**
+   * Whether the key is mandatory. Hosted services reject unauthenticated
+   * requests, so a URL alone does not make them usable; local gateways do not
+   * care. Only affects what `isConfigured()` reports.
+   */
+  requiresApiKey?: boolean | undefined;
+  /** Sent with every request, e.g. OpenRouter's app-attribution headers. */
+  extraHeaders?: Record<string, string> | undefined;
   defaultModel: string;
   /** Shown in the UI, so a self-hosted gateway can be named after itself. */
   name?: string | undefined;
@@ -35,8 +49,14 @@ export interface OpenAICompatibleProviderOptions {
 /** One `choices[0].delta` from a streamed chat completion. */
 interface StreamDelta {
   content?: string | null;
-  /** Reasoning models put their thinking here. It is never part of the answer. */
+  /**
+   * Reasoning models put their thinking here. It is never part of the answer.
+   * Two spellings exist: vLLM and NIM gateways send `reasoning_content`,
+   * OpenRouter sends `reasoning`. Both are read only so the shape is
+   * documented — neither is ever emitted.
+   */
   reasoning_content?: string | null;
+  reasoning?: string | null;
   tool_calls?: {
     index: number;
     id?: string;
@@ -67,19 +87,24 @@ interface PartialToolCall {
  * and the browser, which take untrusted input and keep their SSRF guards.
  */
 export class OpenAICompatibleProvider implements ModelProvider {
-  readonly id = PROVIDER_ID;
+  readonly id: string;
   readonly name: string;
   readonly defaultModel: string;
 
   private readonly baseUrl: string | undefined;
   private readonly apiKey: string | undefined;
+  private readonly requiresApiKey: boolean;
+  private readonly extraHeaders: Record<string, string>;
   private readonly allowedModels: string[] | undefined;
   private readonly fetchImpl: typeof fetch;
   private modelCache: { models: ModelInfo[]; expiresAt: number } | undefined;
 
   constructor(options: OpenAICompatibleProviderOptions) {
+    this.id = options.id?.trim() || PROVIDER_ID;
     this.baseUrl = options.baseUrl?.replace(/\/+$/, "");
     this.apiKey = options.apiKey;
+    this.requiresApiKey = options.requiresApiKey ?? false;
+    this.extraHeaders = options.extraHeaders ?? {};
     this.defaultModel = options.defaultModel;
     this.name = options.name?.trim() || "OpenAI-compatible";
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -88,9 +113,12 @@ export class OpenAICompatibleProvider implements ModelProvider {
     }
   }
 
-  /** The key is optional; without a base URL there is nothing to talk to. */
+  /**
+   * Without a base URL there is nothing to talk to. The key is optional unless
+   * the operator marked it required, which hosted services are.
+   */
   isConfigured(): boolean {
-    return Boolean(this.baseUrl);
+    return Boolean(this.baseUrl) && (!this.requiresApiKey || Boolean(this.apiKey));
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -204,7 +232,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
     path: string,
     options: { method: string; body?: unknown; signal?: AbortSignal | undefined; stream?: boolean },
   ): Promise<unknown> {
-    if (!this.baseUrl) {
+    if (!this.isConfigured()) {
       throw new ProviderError("not_configured", `${this.name} is not configured.`, { provider: this.id });
     }
 
@@ -215,6 +243,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         headers: {
           "Content-Type": "application/json",
           Accept: options.stream ? "text/event-stream" : "application/json",
+          ...this.extraHeaders,
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
