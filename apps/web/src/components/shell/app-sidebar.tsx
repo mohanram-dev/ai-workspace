@@ -70,7 +70,7 @@ export function AppSidebar({ user, onNavigate, onCollapse }: AppSidebarProps) {
         })}
       </nav>
 
-      <div className="mx-3 mb-2 border-t border-sidebar-border" />
+      <div className="mx-2 mb-2 border-t border-sidebar-border" />
       <SidebarConversationList onNavigate={onNavigate} />
 
       <div className="shrink-0 border-t border-sidebar-border p-2">

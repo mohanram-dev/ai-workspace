@@ -1,6 +1,17 @@
 "use client";
 
-import { ChevronsUpDownIcon, LogOutIcon, SettingsIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  ChevronsUpDownIcon,
+  LogOutIcon,
+  MonitorIcon,
+  MoonIcon,
+  PlugIcon,
+  SettingsIcon,
+  SunIcon,
+  SwatchBookIcon,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,11 +20,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import type { ShellUser } from "./workspace-shell";
+
+const THEMES = [
+  { value: "light", label: "Light", icon: SunIcon },
+  { value: "dark", label: "Dark", icon: MoonIcon },
+  { value: "system", label: "System", icon: MonitorIcon },
+] as const;
 
 export function initials(name: string): string {
   return (
@@ -28,6 +50,9 @@ export function initials(name: string): string {
 
 export function UserMenu({ user }: { user: ShellUser }) {
   const router = useRouter();
+  // The menu content only mounts when it is opened, which is client-side, so
+  // reading the theme here cannot cause a hydration mismatch.
+  const { theme, setTheme } = useTheme();
 
   async function signOut() {
     await authClient.signOut();
@@ -60,6 +85,31 @@ export function UserMenu({ user }: { user: ShellUser }) {
             <SettingsIcon /> Settings
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/mcp">
+            <PlugIcon /> MCP servers
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/activity">
+            <ActivityIcon /> Usage and activity
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <SwatchBookIcon /> Theme
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
+              {THEMES.map(({ value, label, icon: Icon }) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  <Icon /> {label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOutIcon /> Sign out
         </DropdownMenuItem>

@@ -23,8 +23,10 @@ export function SidebarConversationList({ onNavigate }: { onNavigate?: () => voi
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative px-3 pb-2">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-5.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      {/* px-2 to match the nav links, conversation rows and user button above
+          and below it; px-3 left the search box 4px out of line with them. */}
+      <div className="relative px-2 pb-2">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-4.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
           value={query}

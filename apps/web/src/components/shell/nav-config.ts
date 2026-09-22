@@ -30,7 +30,9 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/files", label: "Files", icon: FolderOpenIcon },
   { href: "/mcp", label: "MCP Tools", icon: PlugIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
+  // Settings is deliberately absent: this list is workspace destinations, and
+  // account/server configuration lives in the user menu at the bottom of the
+  // sidebar. Listing it in both put two "Settings" links on one screen.
 ];
 
 export const MOBILE_NAV: NavItem[] = [
