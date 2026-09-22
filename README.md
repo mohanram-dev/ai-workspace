@@ -394,8 +394,8 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `OPENAI_PROVIDER_NAME` | no | `OpenAI-compatible` | Display name in the UI |
 | `OPENROUTER_API_KEY` | no | — | OpenRouter key ([openrouter.ai/keys](https://openrouter.ai/keys)). Unset = the provider is off |
 | `OPENROUTER_BASE_URL` | no | `https://openrouter.ai/api/v1` | Override only for a proxy in front of OpenRouter |
-| `OPENROUTER_DEFAULT_MODEL` | no | `qwen/qwen3-30b-a3b-instruct-2507` | Model used when none is chosen |
-| `OPENROUTER_MODELS` | no | a verified low-cost set | Models offered in the picker; OpenRouter advertises 400+ |
+| `OPENROUTER_DEFAULT_MODEL` | no | `qwen/qwen3.7-flash` | Model used when none is chosen |
+| `OPENROUTER_MODELS` | no | `qwen/qwen3.7-flash`, `openai/gpt-oss-120b` | Models offered in the picker; OpenRouter advertises 400+ |
 | `OPENROUTER_APP_NAME` | no | — | Name OpenRouter attributes usage to on its rankings |
 | `DEFAULT_PROVIDER` | no | `gemini` | Which provider agents use by default: `gemini`, `openai-compatible` or `openrouter` |
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |

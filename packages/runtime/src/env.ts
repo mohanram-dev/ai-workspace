@@ -5,26 +5,27 @@ import { z } from "zod";
 const optionalString = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
 
 /**
- * Low-cost OpenRouter models offered when `OPENROUTER_MODELS` is not set.
- * Verified against the live API (2026-09-22): each one streams, returns tool
- * calls and produces valid `json_schema` output on the app's real router
- * prompt. Cheapest first, per 1M tokens in/out at the time of writing.
+ * OpenRouter models offered when `OPENROUTER_MODELS` is not set — the two the
+ * owner chose. Both were verified against the live API (2026-09-22) on all
+ * four paths the app needs: plain streaming, a tool call, `json_schema`
+ * output, and the real 8-agent router prompt. Prices are per 1M tokens in/out.
  *
- * Excluded after failing that check: `google/gemma-3-4b-it` and
- * `google/gemma-3-12b-it` (tool argument came back as the string `{}`),
- * `inception/mercury-2.5` (no tool call at all), `nvidia/nemotron-3-super-120b-a12b:free`
- * (emitted its reasoning in place of the JSON answer), and `openai/gpt-oss-20b`,
- * which answers a short prompt but returns **empty content** on the 8-agent
- * router prompt — 94 output tokens, all of them reasoning, `finish_reason:
- * "stop"`. That is a silent failure: every task falls back to the general
- * agent. Cheap is worthless if the planner cannot parse the reply.
+ * `qwen/qwen3.7-flash` does **not** advertise `structured_outputs` in
+ * OpenRouter's model metadata, yet returns valid schema-shaped JSON. The
+ * declared capability list is therefore a hint, not the answer — check a model
+ * before trusting or rejecting it on that field alone.
+ *
+ * Note for anyone adding a model here: a reasoning model can return
+ * `finish_reason: "stop"` with **empty content** once the prompt is long
+ * enough, having spent its whole output budget thinking. `openai/gpt-oss-20b`
+ * does exactly that on the router prompt (94 output tokens, all reasoning),
+ * and nothing errors — routing silently falls back to the general agent. The
+ * 120b sibling below does not. Always test against the router prompt, not just
+ * a short question.
  */
 const DEFAULT_OPENROUTER_MODELS = [
-  "mistralai/mistral-nemo", //                      $0.019 / $0.030
-  "qwen/qwen3-30b-a3b-instruct-2507", //            $0.048 / $0.193
-  "openai/gpt-5-nano", //                           $0.050 / $0.400
-  "mistralai/mistral-small-3.2-24b-instruct", //    $0.094 / $0.250
-  "google/gemini-2.5-flash-lite", //                $0.100 / $0.400
+  "qwen/qwen3.7-flash", //     $0.030 / $0.130, 1M context
+  "openai/gpt-oss-120b", //    $0.150 / $0.600, 131k context
 ];
 
 const envSchema = z.object({
@@ -71,12 +72,8 @@ const envSchema = z.object({
   /** OpenRouter key (https://openrouter.ai/keys). Unset = the provider is off. */
   OPENROUTER_API_KEY: optionalString,
   OPENROUTER_BASE_URL: z.url().default("https://openrouter.ai/api/v1"),
-  /**
-   * Default model. Not the very cheapest on purpose: mistral-nemo is a 12B
-   * model that routes and chats correctly but is weak at multi-step planning,
-   * which is most of what an agent here does.
-   */
-  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("qwen/qwen3-30b-a3b-instruct-2507"),
+  /** Default model: the cheaper of the two, with far more context. */
+  OPENROUTER_DEFAULT_MODEL: z.string().min(1).default("qwen/qwen3.7-flash"),
   /**
    * Models offered in the picker (comma-separated). OpenRouter advertises 400+,
    * so the default is a small verified set: each one streams, calls tools and

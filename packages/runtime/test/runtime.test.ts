@@ -153,7 +153,7 @@ describe("getProviderRegistry", () => {
 
   it("offers a verified low-cost model list by default and honours an override", async () => {
     const byDefault = await loadRegistry({ OPENROUTER_API_KEY: "sk-or-test" });
-    expect(byDefault.get("openrouter")?.defaultModel).toBe("openai/gpt-oss-20b");
+    expect(byDefault.get("openrouter")?.defaultModel).toBe("qwen/qwen3.7-flash");
 
     const overridden = await loadRegistry({
       OPENROUTER_API_KEY: "sk-or-test",
