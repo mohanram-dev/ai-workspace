@@ -89,6 +89,22 @@ describe("getServerEnv", () => {
     ]);
   });
 
+  it("parses MODEL_PRICES, including model ids that contain a slash", async () => {
+    const env = await loadEnv({ MODEL_PRICES: "gemini/gemini-3.7-flash=0.30/2.50, local-llama=0/0" });
+    expect(env.MODEL_PRICES).toEqual({
+      "gemini/gemini-3.7-flash": { inputPerMillionUsd: 0.3, outputPerMillionUsd: 2.5 },
+      "local-llama": { inputPerMillionUsd: 0, outputPerMillionUsd: 0 },
+    });
+    expect((await loadEnv({})).MODEL_PRICES).toEqual({});
+  });
+
+  it("refuses a malformed price instead of silently not counting it", async () => {
+    await expect(loadEnv({ MODEL_PRICES: "my-model=0.30" })).rejects.toThrow(/MODEL_PRICES/);
+    await expect(loadEnv({ MODEL_PRICES: "my-model=abc/1" })).rejects.toThrow(/MODEL_PRICES/);
+    await expect(loadEnv({ MODEL_PRICES: "=1/2" })).rejects.toThrow(/MODEL_PRICES/);
+    await expect(loadEnv({ MODEL_PRICES: "my-model=-1/2" })).rejects.toThrow(/MODEL_PRICES/);
+  });
+
   it("treats an empty optional value as unset", async () => {
     const env = await loadEnv({ GEMINI_API_KEY: "", REDIS_URL: "" });
     expect(env.GEMINI_API_KEY).toBeUndefined();

@@ -1,10 +1,12 @@
 import { ProviderError } from "../errors";
+import { perMillionFromPerToken } from "../pricing";
 import type {
   ChatMessage,
   ChatRequest,
   ChatStreamChunk,
   FinishReason,
   ModelInfo,
+  ModelPrice,
   ModelProvider,
   ToolCallRequest,
   TokenUsage,
@@ -125,7 +127,14 @@ export class OpenAICompatibleProvider implements ModelProvider {
     if (this.modelCache && this.modelCache.expiresAt > Date.now()) return this.modelCache.models;
 
     const body = (await this.request("/models", { method: "GET" })) as {
-      data?: { id?: string; context_length?: number; max_input_tokens?: number; max_output_tokens?: number }[];
+      data?: {
+        id?: string;
+        context_length?: number;
+        max_input_tokens?: number;
+        max_output_tokens?: number;
+        /** OpenRouter: USD per token, as decimal strings. */
+        pricing?: { prompt?: unknown; completion?: unknown };
+      }[];
     };
     const models: ModelInfo[] = (body.data ?? [])
       .filter((m): m is { id: string } & typeof m => typeof m.id === "string" && m.id.length > 0)
@@ -135,6 +144,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         provider: this.id,
         inputTokenLimit: m.max_input_tokens ?? m.context_length ?? null,
         outputTokenLimit: m.max_output_tokens ?? null,
+        price: publishedPrice(m.pricing),
       }));
 
     let result: ModelInfo[];
@@ -401,6 +411,14 @@ function toToolCallRequest(partial: PartialToolCall, index: number): ToolCallReq
     }
   }
   return { id: partial.id || `call_${index}`, name: partial.name, arguments: args };
+}
+
+/** Both halves of a published price, or nothing: half a price would undercount. */
+function publishedPrice(pricing: { prompt?: unknown; completion?: unknown } | undefined): ModelPrice | null {
+  if (!pricing) return null;
+  const input = perMillionFromPerToken(pricing.prompt);
+  const output = perMillionFromPerToken(pricing.completion);
+  return input === null || output === null ? null : { inputPerMillionUsd: input, outputPerMillionUsd: output };
 }
 
 function toUsage(usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }): TokenUsage {

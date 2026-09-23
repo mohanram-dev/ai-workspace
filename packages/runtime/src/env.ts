@@ -5,6 +5,31 @@ import { z } from "zod";
 const optionalString = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
 
 /**
+ * `MODEL_PRICES`: `model=input/output` in USD per 1M tokens, comma separated,
+ * e.g. `gemini/gemini-3.7-flash=0.30/2.50`. Model ids may contain "/" (and
+ * rarely "="), so an entry splits at its last "=". A malformed entry fails
+ * startup instead of being skipped: a price that is silently dropped is a
+ * daily budget that silently stops counting.
+ */
+const modelPrices = z
+  .string()
+  .optional()
+  .transform((raw, ctx) => {
+    const prices: Record<string, { inputPerMillionUsd: number; outputPerMillionUsd: number }> = {};
+    for (const entry of (raw ?? "").split(",").map((e) => e.trim()).filter(Boolean)) {
+      const at = entry.lastIndexOf("=");
+      const model = entry.slice(0, at).trim();
+      const [input, output, extra] = entry.slice(at + 1).split("/").map((n) => (n.trim() === "" ? Number.NaN : Number(n)));
+      if (at <= 0 || !model || extra !== undefined || !(input! >= 0) || !(output! >= 0)) {
+        ctx.addIssue({ code: "custom", message: `"${entry}" is not model=input/output in USD per 1M tokens, e.g. my-model=0.30/2.50` });
+        continue;
+      }
+      prices[model] = { inputPerMillionUsd: input!, outputPerMillionUsd: output! };
+    }
+    return prices;
+  });
+
+/**
  * OpenRouter models offered when `OPENROUTER_MODELS` is not set — the two the
  * owner chose. Both were verified against the live API (2026-09-22) on all
  * four paths the app needs: plain streaming, a tool call, `json_schema`
@@ -115,6 +140,12 @@ const envSchema = z.object({
         .map((id) => id.trim())
         .filter(Boolean),
     ),
+  /**
+   * Prices for models whose provider publishes none (a LAN gateway), or to
+   * override a published one. Without a price a model's cost is unknown and
+   * does not count towards an agent's daily budget (spec §41).
+   */
+  MODEL_PRICES: modelPrices,
   MAX_RUNNING_TASKS_PER_USER: z.coerce.number().int().min(1).max(50).default(3),
   /** Base directory for per-user tool workspaces; relative paths resolve from the repository root. */
   WORKSPACE_ROOT: z.string().min(1).default("./data/workspaces"),

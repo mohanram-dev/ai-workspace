@@ -143,6 +143,25 @@ describe("listModels", () => {
     await p.listModels();
     expect(calls).toBe(1);
   });
+
+  it("reads the price a service publishes, per token, as a price per 1M tokens", async () => {
+    // The shape OpenRouter's /models returns (values checked against the live API on 2026-09-23).
+    const priced = JSON.stringify({
+      data: [
+        { id: "qwen/qwen3.7-flash", pricing: { prompt: "0.00000003", completion: "0.00000013" } },
+        { id: "openrouter/auto", pricing: { prompt: "-1", completion: "-1" } },
+        { id: "half/priced", pricing: { prompt: "0.000001" } },
+        { id: "unpriced/model" },
+      ],
+    });
+    const models = await provider(async () => new Response(priced, { status: 200 })).listModels();
+    const price = (id: string) => models.find((m) => m.id === id)?.price;
+    expect(price("qwen/qwen3.7-flash")).toEqual({ inputPerMillionUsd: 0.03, outputPerMillionUsd: 0.13 });
+    // A router's price is decided per request, and half a price would undercount.
+    expect(price("openrouter/auto")).toBeNull();
+    expect(price("half/priced")).toBeNull();
+    expect(price("unpriced/model")).toBeNull();
+  });
 });
 
 describe("streamChat", () => {

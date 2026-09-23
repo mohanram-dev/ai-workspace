@@ -46,6 +46,7 @@ services:
       GEMINI_DEFAULT_MODEL: ${GEMINI_DEFAULT_MODEL:-gemini-2.5-flash}
       GEMINI_MODELS: ${GEMINI_MODELS:-}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      MODEL_PRICES: ${MODEL_PRICES:-}
       WORKSPACE_ROOT: /app/data/workspaces
     ports:
       - "${WEB_PORT:-3000}:3000"
@@ -70,6 +71,7 @@ services:
       GEMINI_DEFAULT_MODEL: ${GEMINI_DEFAULT_MODEL:-gemini-2.5-flash}
       GEMINI_MODELS: ${GEMINI_MODELS:-}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+      MODEL_PRICES: ${MODEL_PRICES:-}
       WORKSPACE_ROOT: /app/data/workspaces
       # Computer use controls a real desktop; a container has none.
       COMPUTER_USE_ENABLED: "false"

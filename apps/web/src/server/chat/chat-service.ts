@@ -1,5 +1,4 @@
 import {
-  estimateCostUsd,
   isProviderError,
   type ChatMessage,
   type ModelProvider,
@@ -194,8 +193,7 @@ export async function* executeChatTurn(
   const durationMs = Math.round(performance.now() - startedAt);
   // Providers report usage only at the end of a stream. Without it (stopped or
   // failed replies) the cost is unknown, not zero.
-  const estimatedCostUsd =
-    usage.totalTokens > 0 ? estimateCostUsd(turn.provider.id, turn.model, usage) : null;
+  const estimatedCostUsd = await deps.registry.estimateCostUsd(turn.provider.id, turn.model, usage);
 
   await updateMessage(deps.db, turn.assistantMessage.id, {
     content,

@@ -45,6 +45,7 @@ export function getProviderRegistry(): ProviderRegistry {
         }),
       ],
       env.DEFAULT_PROVIDER,
+      { prices: env.MODEL_PRICES },
     );
   }
   return globalForProviders.__aiwProviders;

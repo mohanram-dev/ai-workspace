@@ -241,7 +241,7 @@ export function AgentForm({ agent, models, providers, tools }: AgentFormProps) {
               min={AGENT_LIMITS.maxExecutionSeconds.min}
               max={AGENT_LIMITS.maxExecutionSeconds.max}
             />
-            <Field label="Daily budget (USD)" htmlFor="dailyBudgetUsd" hint="Empty for no limit. Uses estimated model cost.">
+            <Field label="Daily budget (USD)" htmlFor="dailyBudgetUsd" hint="Empty for no limit. Counts the estimated cost of models with a known price; the task timeline warns when a model has none.">
               <Input
                 id="dailyBudgetUsd"
                 inputMode="decimal"

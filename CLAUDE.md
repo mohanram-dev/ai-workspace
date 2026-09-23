@@ -299,6 +299,7 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | OpenRouter | `OPENROUTER_API_KEY` (unset = off), `OPENROUTER_BASE_URL`, `OPENROUTER_DEFAULT_MODEL`, `OPENROUTER_MODELS`, `OPENROUTER_APP_NAME` |
 | Provider default | `DEFAULT_PROVIDER` (`gemini` \| `openai-compatible` \| `openrouter`). `ROUTER_MODEL` resolves against it, so change them together |
 | Fallback | `MODEL_FALLBACKS` — models tried in order when the chosen one cannot answer; resolved through the registry, so they may span providers |
+| Pricing | `MODEL_PRICES` — `model=in/out` USD per 1M tokens for models whose provider publishes no price. Parsed strictly: a malformed entry fails startup, because a dropped price is a budget that silently stops counting |
 | Security | `ALLOW_REGISTRATION` (false), `CHAT_RATE_LIMIT_PER_MINUTE` |
 | Tasks | `MAX_RUNNING_TASKS_PER_USER`, `WORKSPACE_ROOT` (`./data/workspaces`) |
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
