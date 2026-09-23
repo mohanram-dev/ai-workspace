@@ -148,6 +148,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/agents`, `/agents/new`, `/agents/[agentId]` | Agent list and editor (tools, permissions, limits, autonomous mode) |
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
+| `/print/c/[conversationId]` | A conversation laid out for paper, **outside** `(workspace)` so no shell prints; it opens the print dialog (Save as PDF). `globals.css` has an `@media print` block that swaps `.dark` for the light tokens. Markdown exports and the Activity CSV are built in `server/export.ts`; CSV cells that start like a formula get an apostrophe |
 | `/templates` | Saved prompts (`prompt_template`), in `MORE_NAV`. The composer's bookmark (`features/templates/template-picker.tsx`) lists and saves them; `{{name}}` blanks are filled through `fillTemplate` in `@aiw/shared`, used by server and browser alike. `/?template=<id>` applies one on the new-task page, then drops the parameter |
 | `/schedules` | Created from the form **or from a chat message** — `schedule.create` is DESTRUCTIVE, so the agent's proposal waits for your approval. Cron/daily/weekly/monthly/interval/once + run history. Every run of a schedule goes to **one conversation** (`schedule.conversation_id`, named after the schedule) through `startScheduleTask` in `@aiw/scheduler`, shared by the ticker and Run now; runs are created with `includeHistory: false` so they stay independent, and a busy conversation makes the run `skipped`. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
 | `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
@@ -414,7 +415,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).
 - Browser: no persistent logins across tasks, no file download/upload through the page, follows the newest tab only.
 - Scheduler: no catch-up policy for a long outage — a schedule due while the server was down fires once on restart and then advances one occurrence per tick until it is current, rather than firing once and skipping the rest. No per-schedule retries.
-- Activity: no export (CSV/Prometheus), no per-project filter, no retention/rollups — events and usage rows are kept forever.
+- Activity: CSV export only (no Prometheus endpoint), no per-project filter, no retention/rollups — events and usage rows are kept forever.
 - Delegation: sequential only (the manager waits for each sub-task); no cross-user delegation; sub-tasks bypass `MAX_RUNNING_TASKS_PER_USER` by design.
 - Worker image is large (Playwright base). Logs go to stdout only.
 - Windows dev notes: Defender AMSI blocks PowerShell scripts that base64-encode screenshots in-script (the desktop driver writes a temp file instead); `page.evaluate(fn)` gets bundler helpers injected — keep in-page scripts as plain JS strings.

@@ -7,11 +7,12 @@ import {
   type ActivityRange,
   type TaskEvent,
 } from "@aiw/shared";
-import { ActivityIcon, AlertTriangleIcon, BotIcon, CircleDollarSignIcon, CpuIcon, ListChecksIcon, WrenchIcon } from "lucide-react";
+import { ActivityIcon, AlertTriangleIcon, BotIcon, CircleDollarSignIcon, CpuIcon, DownloadIcon, ListChecksIcon, WrenchIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch, errorMessage } from "@/lib/api-client";
 import { formatCost, formatDuration, formatRelativeTime, formatTokens } from "@/lib/format";
@@ -85,12 +86,33 @@ export function ActivityPage() {
               What your agents have done, what it cost, and what is happening right now. Every figure is read from recorded runs.
             </p>
           </div>
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Time range">
-            {ACTIVITY_RANGES.map((value) => (
-              <Button key={value} size="sm" variant={value === range ? "secondary" : "ghost"} onClick={() => setRange(value)}>
-                {ACTIVITY_RANGE_LABELS[value]}
-              </Button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1">
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Time range">
+              {ACTIVITY_RANGES.map((value) => (
+                <Button key={value} size="sm" variant={value === range ? "secondary" : "ghost"} onClick={() => setRange(value)}>
+                  {ACTIVITY_RANGE_LABELS[value]}
+                </Button>
+              ))}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <DownloadIcon /> Export CSV
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuItem asChild>
+                  <a href={`/api/activity/export?kind=tasks&range=${range}`} download>
+                    Tasks · {ACTIVITY_RANGE_LABELS[range].toLowerCase()}
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href={`/api/activity/export?kind=usage&range=${range}`} download>
+                    Model calls · {ACTIVITY_RANGE_LABELS[range].toLowerCase()}
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

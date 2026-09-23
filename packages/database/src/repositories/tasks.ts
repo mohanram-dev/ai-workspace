@@ -53,10 +53,11 @@ export async function getTaskForUser(db: Database, userId: string, taskId: strin
 export async function listTasksForUser(
   db: Database,
   userId: string,
-  options: { statuses?: TaskStatus[] | undefined; limit: number },
+  options: { statuses?: TaskStatus[] | undefined; limit: number; since?: Date | undefined },
 ): Promise<TaskWithAgent[]> {
   const filters = [eq(tasks.userId, userId)];
   if (options.statuses) filters.push(inArray(tasks.status, options.statuses));
+  if (options.since) filters.push(gte(tasks.createdAt, options.since));
   const rows = await db
     .select(taskWithAgentColumns)
     .from(tasks)

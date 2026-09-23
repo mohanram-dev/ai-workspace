@@ -5,10 +5,12 @@ import { MAX_TITLE_LENGTH } from "@aiw/shared";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  DownloadIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
+  PrinterIcon,
   Trash2Icon,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -77,7 +79,7 @@ export function ConversationActions({ conversation, className, align = "end" }: 
             <MoreHorizontalIcon />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={align} className="w-44">
+        <DropdownMenuContent align={align} className="w-52">
           <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
             <PencilIcon /> Rename
           </DropdownMenuItem>
@@ -90,6 +92,17 @@ export function ConversationActions({ conversation, className, align = "end" }: 
           <DropdownMenuItem onSelect={() => void update(conversation.id, { archived: !conversation.archived })}>
             {conversation.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
             {conversation.archived ? "Restore" : "Archive"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <a href={`/api/conversations/${conversation.id}/export`} download>
+              <DownloadIcon /> Export as Markdown
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href={`/print/c/${conversation.id}`} target="_blank" rel="noopener">
+              <PrinterIcon /> Print or save as PDF
+            </a>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}>
