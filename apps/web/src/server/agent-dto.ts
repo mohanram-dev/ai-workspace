@@ -68,6 +68,7 @@ export function toTaskDto(row: TaskWithAgent, steps: TaskStep[], lastEventId = 0
   return {
     id: row.id,
     prompt: row.prompt,
+    attachments: row.attachments ?? [],
     status: row.status,
     agent: row.agent,
     routing: row.routing,

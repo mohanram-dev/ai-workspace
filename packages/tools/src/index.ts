@@ -17,6 +17,7 @@ export type { WebToolsConfig } from "./builtin/web";
 export { extractReadableText, type ExtractedPage } from "./html";
 export { createGuardedFetch, createSafeLookup, isPrivateAddress, safeFetch, type FetchResult, type GuardedFetch } from "./net";
 export { extractPdfText, isPdf, looksLikePdf, MAX_PDF_BYTES, type PdfText } from "./pdf";
+export { attachmentContent, attachmentSizeLimit, MAX_ATTACHMENT_BYTES, type AttachmentContent } from "./attachments";
 export { canBeTrusted, decidePermission, NEVER_AUTONOMOUS, type AutonomousSettings, type PermissionDecision } from "./permissions";
 export { runProcess, safeProcessEnv, type ProcessResult } from "./process";
 export { toolParameters, ToolRegistry, type ToolInfo } from "./registry";

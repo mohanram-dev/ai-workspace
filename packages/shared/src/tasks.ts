@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_MESSAGE_LENGTH, type MessageDto } from "./chat";
+import { MAX_ATTACHMENTS_PER_MESSAGE, MAX_MESSAGE_LENGTH, messageAttachmentSchema, type MessageAttachment, type MessageDto } from "./chat";
 import type { ScreenshotDto, ToolCallDto } from "./tools";
 
 /** Task lifecycle states (spec §38). WAITING_* and PAUSED are reserved for later phases. */
@@ -44,6 +44,8 @@ export const createTaskSchema = z.object({
   model: z.string().min(1).max(200).optional(),
   /** Run inside a project: its files and memory are used. */
   projectId: z.uuid().nullish(),
+  /** Files from the workspace the agent should look at: images as pictures, documents as text. */
+  attachments: z.array(messageAttachmentSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
@@ -90,6 +92,8 @@ export interface TaskStepDto {
 export interface TaskDto {
   id: string;
   prompt: string;
+  /** Files attached to the task. */
+  attachments: MessageAttachment[];
   status: TaskStatus;
   agent: { id: string; name: string; slug: string } | null;
   routing: TaskRouting | null;

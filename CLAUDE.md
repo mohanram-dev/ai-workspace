@@ -202,7 +202,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Access goes through **repositories** (`src/repositories/*.ts`): `getXForUser(db, userId, id)` is the ownership check; never query a user's rows without the userId filter.
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 16 migrations exist, `0000_init` → `0015_general_agent_schedule_tools`. Data migrations (0013, 0015) are hand-written.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 18 migrations exist, `0000_init` → `0017_task_attachments`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---

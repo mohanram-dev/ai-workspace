@@ -14,7 +14,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import type { TaskError, TaskRouting } from "@aiw/shared";
+import type { MessageAttachment, TaskError, TaskRouting } from "@aiw/shared";
 import { users } from "./auth";
 import { conversations } from "./conversations";
 import { projects } from "./projects";
@@ -100,6 +100,8 @@ export const tasks = pgTable(
     /** 0 for a task you started; each delegation adds one. */
     depth: integer("depth").notNull().default(0),
     prompt: text("prompt").notNull(),
+    /** Files the user attached (spec §3): images the model looks at, documents it reads. */
+    attachments: jsonb("attachments").$type<MessageAttachment[]>(),
     status: taskStatus("status").notNull().default("queued"),
     /** Set when the user asks to pause; the runtime pauses at the next step boundary. */
     pauseRequestedAt: timestamp("pause_requested_at", { withTimezone: true }),

@@ -108,6 +108,7 @@ export class TaskService {
       conversationId: conversation.id,
       projectId: conversation.projectId,
       prompt: input.prompt,
+      attachments: input.attachments?.length ? input.attachments : null,
       modelOverride: input.model ?? null,
       status: "queued",
     });
@@ -116,6 +117,7 @@ export class TaskService {
       role: "user",
       content: input.prompt,
       status: "completed",
+      ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     });
     const assistantMessage = await insertMessage(db, {
       conversationId: conversation.id,
@@ -217,6 +219,7 @@ export class TaskService {
       retryOfTaskId: original.id,
       attempt: original.attempt + 1,
       prompt: original.prompt,
+      attachments: original.attachments,
       modelOverride: original.modelOverride,
       status: "queued",
     });
