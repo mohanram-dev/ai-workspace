@@ -10,6 +10,7 @@ import {
   PlugIcon,
   SettingsIcon,
   SquarePenIcon,
+  WebhookIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ export const PRIMARY_NAV: NavItem[] = [
 export const MORE_NAV: NavItem[] = [
   { href: "/schedules", label: "Schedules", icon: CalendarClockIcon },
   { href: "/templates", label: "Templates", icon: BookmarkIcon },
+  { href: "/webhooks", label: "Webhooks", icon: WebhookIcon },
   { href: "/files", label: "Files", icon: FolderOpenIcon },
   { href: "/mcp", label: "MCP Tools", icon: PlugIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },

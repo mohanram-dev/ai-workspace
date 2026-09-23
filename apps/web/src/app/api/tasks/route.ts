@@ -7,7 +7,7 @@ import { getChatRateLimiter } from "@/server/chat/deps";
 import { toConversationDto, toMessageDto } from "@/server/dto";
 import { getServerEnv } from "@/server/env";
 import { assertSameOrigin, errorResponse, HttpError, readJson } from "@/server/http";
-import { requireApiSession } from "@/server/session";
+import { requireApiUser } from "@/server/api-tokens";
 
 const STATUS_FILTERS: Record<string, TaskStatus[] | undefined> = {
   all: undefined,
@@ -17,10 +17,10 @@ const STATUS_FILTERS: Record<string, TaskStatus[] | undefined> = {
   cancelled: ["cancelled"],
 };
 
-/** GET /api/tasks?status=all|active|completed|failed|cancelled&limit= */
+/** GET /api/tasks?status=all|active|completed|failed|cancelled&limit= — session or personal API token. */
 export async function GET(request: Request): Promise<Response> {
   try {
-    const { user } = await requireApiSession(request);
+    const { user } = await requireApiUser(request);
     const query = listTasksQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!query.success) throw new HttpError(400, "bad_request", "Invalid query parameters.");
 
@@ -33,11 +33,15 @@ export async function GET(request: Request): Promise<Response> {
   }
 }
 
-/** POST /api/tasks — create an agent task (auto-routed unless agentId is given). Runs in the background. */
+/**
+ * POST /api/tasks — create an agent task (auto-routed unless agentId is given).
+ * Runs in the background. Accepts a personal API token (Authorization: Bearer)
+ * as well as the session, so other systems can start tasks.
+ */
 export async function POST(request: Request): Promise<Response> {
   try {
     assertSameOrigin(request, getServerEnv().APP_URL);
-    const { user } = await requireApiSession(request);
+    const { user } = await requireApiUser(request);
 
     const limit = getChatRateLimiter().check(user.id);
     if (!limit.allowed) {

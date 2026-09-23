@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/features/auth/sign-out-button";
+import { ApiTokens } from "@/features/settings/api-tokens";
 import Link from "next/link";
 import { getAgentServices } from "@/server/agents";
 import { getServerEnv } from "@/server/env";
@@ -88,6 +89,16 @@ export default async function SettingsPage() {
             </div>
           </Row>
         </Section>
+
+        <section className="rounded-xl border bg-card">
+          <header className="border-b px-4 py-3 sm:px-5">
+            <h2 className="text-sm font-semibold">API tokens</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              For scripts and other servers that start tasks. A webhook (under <Link href="/webhooks" className="underline underline-offset-2">Webhooks</Link>) needs no token.
+            </p>
+          </header>
+          <ApiTokens />
+        </section>
 
         <Section title="Tools" description="Configured through environment variables on the server.">
           <Row label="Workspace directory">

@@ -3,6 +3,7 @@ export * from "./approvals";
 export * from "./auth";
 export * from "./conversations";
 export * from "./events";
+export * from "./integrations";
 export * from "./memory";
 export * from "./mcp";
 export * from "./observability";

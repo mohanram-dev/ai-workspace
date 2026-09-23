@@ -5,6 +5,7 @@ export * from "./api-error";
 export * from "./chat";
 export * from "./conversations";
 export * from "./events";
+export * from "./integrations";
 export * from "./mcp";
 export * from "./projects";
 export * from "./schedules";
