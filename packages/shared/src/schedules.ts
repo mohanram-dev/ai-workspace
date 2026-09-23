@@ -135,6 +135,8 @@ export interface ScheduleDto {
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastTaskId: string | null;
+  /** The conversation every run of this schedule is posted to, once it has run. */
+  conversationId: string | null;
   runCount: number;
   /** Plain-language summary of the trigger, e.g. "Every day at 08:00 (UTC)". */
   description: string;

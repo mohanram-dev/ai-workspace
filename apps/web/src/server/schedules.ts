@@ -26,6 +26,7 @@ export function toScheduleDto(row: ScheduleWithNames): ScheduleDto {
     nextRunAt: row.nextRunAt?.toISOString() ?? null,
     lastRunAt: row.lastRunAt?.toISOString() ?? null,
     lastTaskId: row.lastTaskId,
+    conversationId: row.conversationId,
     runCount: row.runCount,
     description: describeTrigger(triggerSettingsOf(row as Schedule)),
     createdAt: row.createdAt.toISOString(),

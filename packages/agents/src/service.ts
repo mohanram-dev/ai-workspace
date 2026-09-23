@@ -68,7 +68,12 @@ export async function assertConversationIdle(db: Database, userId: string, messa
 export class TaskService {
   constructor(private readonly options: TaskServiceOptions) {}
 
-  async createTask(userId: string, input: CreateTaskInput): Promise<CreatedTask> {
+  /**
+   * `options` are for callers inside the server, never the API: a schedule
+   * posts every run into its own conversation, but each run must stay
+   * independent of the ones before it (`includeHistory: false`).
+   */
+  async createTask(userId: string, input: CreateTaskInput, options: { includeHistory?: boolean } = {}): Promise<CreatedTask> {
     const { db, registry } = this.options;
     await ensureBuiltinAgents(db, userId);
 
@@ -109,6 +114,7 @@ export class TaskService {
       projectId: conversation.projectId,
       prompt: input.prompt,
       attachments: input.attachments?.length ? input.attachments : null,
+      includeHistory: options.includeHistory ?? true,
       modelOverride: input.model ?? null,
       status: "queued",
     });
@@ -220,6 +226,7 @@ export class TaskService {
       attempt: original.attempt + 1,
       prompt: original.prompt,
       attachments: original.attachments,
+      includeHistory: original.includeHistory,
       modelOverride: original.modelOverride,
       status: "queued",
     });

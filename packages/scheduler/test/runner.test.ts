@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import {
+  createConversation,
   createDatabase,
   createSchedule,
+  deleteConversationForUser,
+  getConversationForUser,
   getScheduleForUser,
+  getTask,
   listScheduleRuns,
   schema,
+  updateScheduleForUser,
   type DatabaseHandle,
 } from "@aiw/database";
+import { AppError } from "@aiw/shared";
 import { getTestDatabaseUrl, resetTestDatabase } from "@aiw/database/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Scheduler, type ScheduleTaskStarter } from "../src";
@@ -30,19 +36,37 @@ async function createUser(): Promise<string> {
   return id;
 }
 
-/** Records what the scheduler asked for, and can refuse like a busy task service. */
-function taskStarter(behaviour: "ok" | "busy" = "ok"): ScheduleTaskStarter & { calls: unknown[] } {
-  const calls: unknown[] = [];
+/**
+ * Records what the scheduler asked for, and can refuse like a busy task
+ * service: over the running-task limit, or with the shared conversation still
+ * working (TaskService answers 409 for that).
+ */
+function taskStarter(behaviour: "ok" | "busy" | "conversation-busy" = "ok"): ScheduleTaskStarter & { calls: Record<string, unknown>[]; options: unknown[] } {
+  const calls: Record<string, unknown>[] = [];
+  const options: unknown[] = [];
   return {
     calls,
-    async createTask(userId, input) {
+    options,
+    async createTask(userId, input, taskOptions) {
       calls.push({ userId, ...input });
+      options.push(taskOptions);
       if (behaviour === "busy") throw new Error("You already have 3 tasks running.");
+      if (behaviour === "conversation-busy") throw new AppError(409, "conflict", "An agent is still working in this conversation.");
+      const conversationId =
+        input.conversationId ?? (await createConversation(handle.db, { userId, title: input.prompt, ...(input.projectId ? { projectId: input.projectId } : {}) })).id;
       const [task] = await handle.db
         .insert(schema.tasks)
-        .values({ userId, prompt: input.prompt, status: "queued", agentId: input.agentId ?? null, projectId: input.projectId ?? null })
+        .values({
+          userId,
+          prompt: input.prompt,
+          status: "queued",
+          agentId: input.agentId ?? null,
+          projectId: input.projectId ?? null,
+          conversationId,
+          includeHistory: taskOptions?.includeHistory ?? true,
+        })
         .returning();
-      return { task: { id: task!.id } };
+      return { task: { id: task!.id }, conversation: { id: conversationId } };
     },
   };
 }
@@ -175,6 +199,82 @@ describe("Scheduler", () => {
     expect(a + b).toBe(1);
     expect(await listScheduleRuns(handle.db, shared.id)).toHaveLength(1);
     expect(tasks.calls).toHaveLength(1);
+  });
+
+  it("posts every run to the schedule's own conversation, each run without the earlier ones as history", async () => {
+    const userId = await createUser();
+    const due = new Date(Date.now() - 1000);
+    const schedule = await createSchedule(handle.db, {
+      userId,
+      name: "AI news digest",
+      prompt: "Every morning, summarise AI news",
+      trigger: "interval",
+      intervalMinutes: 60,
+      timezone: "UTC",
+      nextRunAt: due,
+    });
+    const tasks = taskStarter();
+    const scheduler = new Scheduler({ db: handle.db, tasks });
+
+    expect(await scheduler.tick()).toBe(1);
+    const first = (await getScheduleForUser(handle.db, userId, schedule.id))!;
+    expect(first.conversationId).not.toBeNull();
+    // Named after the schedule, not after the prompt's first words.
+    expect((await getConversationForUser(handle.db, userId, first.conversationId!))?.title).toBe("AI news digest");
+    expect(tasks.options[0]).toEqual({ includeHistory: false });
+    expect((await getTask(handle.db, first.lastTaskId!))?.includeHistory).toBe(false);
+
+    await updateScheduleForUser(handle.db, userId, schedule.id, { nextRunAt: new Date(Date.now() - 1000) });
+    expect(await scheduler.tick()).toBe(1);
+    expect(tasks.calls[1]).toMatchObject({ conversationId: first.conversationId });
+    expect((await getScheduleForUser(handle.db, userId, schedule.id))?.conversationId).toBe(first.conversationId);
+  });
+
+  it("starts a new conversation when the old one was deleted or is in another project", async () => {
+    const userId = await createUser();
+    const schedule = await createSchedule(handle.db, {
+      userId,
+      name: "Weekly check",
+      prompt: "Check the issues",
+      trigger: "interval",
+      intervalMinutes: 60,
+      timezone: "UTC",
+      nextRunAt: new Date(Date.now() - 1000),
+    });
+    const tasks = taskStarter();
+    const scheduler = new Scheduler({ db: handle.db, tasks });
+    await scheduler.tick();
+    const firstConversation = (await getScheduleForUser(handle.db, userId, schedule.id))!.conversationId!;
+
+    await deleteConversationForUser(handle.db, userId, firstConversation);
+    await updateScheduleForUser(handle.db, userId, schedule.id, { nextRunAt: new Date(Date.now() - 1000) });
+    await scheduler.tick();
+    const second = (await getScheduleForUser(handle.db, userId, schedule.id))!.conversationId!;
+    expect(tasks.calls[1]).not.toHaveProperty("conversationId");
+    expect(second).not.toBe(firstConversation);
+
+    const [project] = await handle.db.insert(schema.projects).values({ ownerId: userId, name: "Elsewhere" }).returning();
+    await updateScheduleForUser(handle.db, userId, schedule.id, { projectId: project!.id, nextRunAt: new Date(Date.now() - 1000) });
+    await scheduler.tick();
+    // The personal conversation is not reused for a project schedule.
+    expect(tasks.calls[2]).toMatchObject({ projectId: project!.id });
+    expect(tasks.calls[2]).not.toHaveProperty("conversationId");
+  });
+
+  it("says why a run was skipped when the previous one is still working", async () => {
+    const userId = await createUser();
+    const schedule = await createSchedule(handle.db, {
+      userId,
+      name: "Slow job",
+      prompt: "Takes a while",
+      trigger: "interval",
+      intervalMinutes: 5,
+      timezone: "UTC",
+      nextRunAt: new Date(Date.now() - 1000),
+    });
+    await new Scheduler({ db: handle.db, tasks: taskStarter("conversation-busy") }).tick();
+    const [run] = await listScheduleRuns(handle.db, schedule.id);
+    expect(run).toMatchObject({ status: "skipped", detail: "The previous run of this schedule is still working. Wait for it to finish, or stop it." });
   });
 
   it("disables a schedule whose trigger stops being usable", async () => {
