@@ -1,4 +1,4 @@
-import type { TokenUsage } from "./types";
+import type { ModelPrice, TokenUsage } from "./types";
 
 interface PriceTier {
   /** Tier applies while prompt tokens are at or below this value. */
@@ -34,13 +34,32 @@ const PRICING: Record<string, Record<string, PriceTier[]>> = {
   },
 };
 
+/** Cost from the built-in list prices above; null for any model not listed. */
 export function estimateCostUsd(provider: string, model: string, usage: TokenUsage): number | null {
   const tiers = PRICING[provider]?.[model];
   if (!tiers) return null;
   const tier = tiers.find((t) => usage.inputTokens <= t.maxInputTokens) ?? tiers[tiers.length - 1];
   if (!tier) return null;
-  const cost =
-    (usage.inputTokens * tier.inputPerMillionUsd + usage.outputTokens * tier.outputPerMillionUsd) /
-    1_000_000;
+  return costFromPrice(tier, usage);
+}
+
+export function hasListPrice(provider: string, model: string): boolean {
+  return Boolean(PRICING[provider]?.[model]);
+}
+
+/** Cost of one call at a flat per-token price, rounded to a millionth of a dollar. */
+export function costFromPrice(price: ModelPrice, usage: TokenUsage): number {
+  const cost = (usage.inputTokens * price.inputPerMillionUsd + usage.outputTokens * price.outputPerMillionUsd) / 1_000_000;
   return Math.round(cost * 1_000_000) / 1_000_000;
+}
+
+/**
+ * A published per-token price as a per-million one. OpenRouter publishes USD
+ * per token as decimal strings, and uses a negative value for models whose
+ * price is decided per request (routers); those have no usable price.
+ */
+export function perMillionFromPerToken(value: unknown): number | null {
+  const perToken = typeof value === "string" ? Number(value) : typeof value === "number" ? value : Number.NaN;
+  if (!Number.isFinite(perToken) || perToken < 0) return null;
+  return Math.round(perToken * 1_000_000 * 1_000_000) / 1_000_000;
 }

@@ -1,9 +1,15 @@
 import { ProviderError } from "./errors";
-import type { ModelProvider } from "./types";
+import { costFromPrice, estimateCostUsd, hasListPrice } from "./pricing";
+import type { ModelPrice, ModelProvider, TokenUsage } from "./types";
 
 export interface ResolvedModel {
   provider: ModelProvider;
   model: string;
+}
+
+export interface ProviderRegistryOptions {
+  /** Prices the operator configured (MODEL_PRICES), by model id. They win over every other source. */
+  prices?: Record<string, ModelPrice>;
 }
 
 /**
@@ -13,13 +19,46 @@ export interface ResolvedModel {
 export class ProviderRegistry {
   private readonly providers = new Map<string, ModelProvider>();
   private readonly defaultProviderId: string;
+  private readonly prices: Map<string, ModelPrice>;
 
-  constructor(providers: ModelProvider[], defaultProviderId: string) {
+  constructor(providers: ModelProvider[], defaultProviderId: string, options: ProviderRegistryOptions = {}) {
     for (const provider of providers) this.providers.set(provider.id, provider);
     if (!this.providers.has(defaultProviderId)) {
       throw new Error(`Default provider "${defaultProviderId}" is not registered`);
     }
     this.defaultProviderId = defaultProviderId;
+    this.prices = new Map(Object.entries(options.prices ?? {}));
+  }
+
+  /**
+   * Estimated cost of one call (spec §41), from the first source that knows
+   * the model: a price the operator configured, the built-in list prices, then
+   * the price the provider publishes with its model list (OpenRouter does).
+   * A model none of them knows costs null — unknown, never a guess and never
+   * zero, because a daily budget can only count what it can price.
+   */
+  async estimateCostUsd(providerId: string, model: string, usage: TokenUsage): Promise<number | null> {
+    if (usage.totalTokens <= 0) return null;
+    const configured = this.prices.get(model);
+    if (configured) return costFromPrice(configured, usage);
+    const listed = estimateCostUsd(providerId, model, usage);
+    if (listed !== null) return listed;
+    const published = await this.publishedPrice(providerId, model);
+    return published ? costFromPrice(published, usage) : null;
+  }
+
+  /** Whether calls to this model can be priced, so a budget can count them. */
+  async hasPrice(providerId: string, model: string): Promise<boolean> {
+    return this.prices.has(model) || hasListPrice(providerId, model) || (await this.publishedPrice(providerId, model)) !== null;
+  }
+
+  private async publishedPrice(providerId: string, model: string): Promise<ModelPrice | null> {
+    const provider = this.providers.get(providerId);
+    if (!provider?.isConfigured()) return null;
+    // Model lists are cached by the providers. A list that cannot be read
+    // leaves the cost unknown; it must never fail the call being priced.
+    const models = await provider.listModels().catch(() => []);
+    return models.find((m) => m.id === model)?.price ?? null;
   }
 
   list(): ModelProvider[] {

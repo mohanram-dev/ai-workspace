@@ -160,6 +160,53 @@ describe("estimateCostUsd", () => {
   });
 });
 
+describe("ProviderRegistry.estimateCostUsd (spec §41)", () => {
+  const MILLION = { inputTokens: 1_000_000, outputTokens: 1_000_000, totalTokens: 2_000_000 };
+  const published = (id: string, price: ModelInfo["price"]): ModelInfo => ({ id, label: id, provider: "openrouter", inputTokenLimit: null, outputTokenLimit: null, price });
+  const openrouter = (listModels: ModelProvider["listModels"]) =>
+    fakeProvider({ id: "openrouter", defaultModel: "qwen/qwen3.7-flash", listModels });
+
+  it("prices a model from the price its provider publishes", async () => {
+    const registry = new ProviderRegistry([openrouter(async () => [published("qwen/qwen3.7-flash", { inputPerMillionUsd: 0.03, outputPerMillionUsd: 0.13 })])], "openrouter");
+    expect(await registry.estimateCostUsd("openrouter", "qwen/qwen3.7-flash", MILLION)).toBeCloseTo(0.16);
+    expect(await registry.hasPrice("openrouter", "qwen/qwen3.7-flash")).toBe(true);
+  });
+
+  it("lets a configured price win over the list price and the published one", async () => {
+    const registry = new ProviderRegistry(
+      [fakeProvider({ id: "gemini", defaultModel: "gemini-2.5-flash" }), openrouter(async () => [published("m", { inputPerMillionUsd: 5, outputPerMillionUsd: 5 })])],
+      "gemini",
+      { prices: { "gemini-2.5-flash": { inputPerMillionUsd: 1, outputPerMillionUsd: 1 }, m: { inputPerMillionUsd: 2, outputPerMillionUsd: 2 } } },
+    );
+    expect(await registry.estimateCostUsd("gemini", "gemini-2.5-flash", MILLION)).toBeCloseTo(2);
+    expect(await registry.estimateCostUsd("openrouter", "m", MILLION)).toBeCloseTo(4);
+  });
+
+  it("keeps the built-in list price when nothing overrides it", async () => {
+    const registry = new ProviderRegistry([fakeProvider({ id: "gemini", defaultModel: "gemini-2.5-flash" })], "gemini");
+    expect(await registry.estimateCostUsd("gemini", "gemini-2.5-flash", MILLION)).toBeCloseTo(2.8);
+  });
+
+  it("returns null, never zero, when no source knows the model or the list cannot be read", async () => {
+    const unknown = new ProviderRegistry([openrouter(async () => [published("other", null)])], "openrouter");
+    expect(await unknown.estimateCostUsd("openrouter", "other", MILLION)).toBeNull();
+    expect(await unknown.hasPrice("openrouter", "other")).toBe(false);
+
+    const failing = new ProviderRegistry(
+      [openrouter(async () => {
+        throw new ProviderError("unavailable", "down", { provider: "openrouter" });
+      })],
+      "openrouter",
+    );
+    expect(await failing.estimateCostUsd("openrouter", "qwen/qwen3.7-flash", MILLION)).toBeNull();
+  });
+
+  it("does not price a call that reported no usage", async () => {
+    const registry = new ProviderRegistry([fakeProvider({ id: "gemini", defaultModel: "gemini-2.5-flash" })], "gemini");
+    expect(await registry.estimateCostUsd("gemini", "gemini-2.5-flash", { inputTokens: 0, outputTokens: 0, totalTokens: 0 })).toBeNull();
+  });
+});
+
 describe("isProviderError", () => {
   it("recognises ProviderErrors from another module copy by shape", async () => {
     const { isProviderError, ProviderError } = await import("../src");

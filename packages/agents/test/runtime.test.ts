@@ -7,6 +7,7 @@ import {
   getTask,
   insertMessage,
   listAgentsForUser,
+  listTaskEvents,
   listTaskSteps,
   resetUnfinishedSteps,
   schema,
@@ -292,6 +293,32 @@ describe("AgentRuntime", () => {
     expect(await runtime.execute(task.id, new AbortController().signal)).toBe("failed");
     expect((await getTask(handle.db, task.id))?.error).toMatchObject({ code: "budget_exceeded", retryable: true });
     expect(provider.requests).toHaveLength(0);
+  });
+
+  it("counts a model priced only by its provider's published list against the budget", async () => {
+    // OpenRouter-style: no built-in price, so only the published one can make the budget work.
+    const { runtime, userId, agent, provider } = await setup(() => "Answer.", { dailyBudgetUsd: 0.01, planningMode: "never" });
+    provider.listModels = async () =>
+      ["scripted-1"].map((id) => ({ id, label: id, provider: "scripted", inputTokenLimit: null, outputTokenLimit: null, price: { inputPerMillionUsd: 1000, outputPerMillionUsd: 1000 } }));
+
+    const first = await queueTask(userId, { agentId: agent.id });
+    expect(await runtime.execute(first.task.id, new AbortController().signal)).toBe("completed");
+    // 15 tokens at $1,000 per 1M = $0.015, which is over the $0.01 budget.
+    expect((await usageFor(first.task.id)).map((u) => u.estimatedCostUsd)).toEqual([0.015]);
+
+    const second = await queueTask(userId, { agentId: agent.id });
+    expect(await runtime.execute(second.task.id, new AbortController().signal)).toBe("failed");
+    expect((await getTask(handle.db, second.task.id))?.error).toMatchObject({ code: "budget_exceeded" });
+  });
+
+  it("says so on the timeline when a budget cannot count the chosen model", async () => {
+    const { runtime, userId, agent } = await setup(() => "Answer.", { dailyBudgetUsd: 1, planningMode: "never" });
+    const { task } = await queueTask(userId, { agentId: agent.id });
+    expect(await runtime.execute(task.id, new AbortController().signal)).toBe("completed");
+
+    const warnings = (await listTaskEvents(handle.db, task.id)).filter((e) => e.type === "THINKING_STATUS" && e.status === "warning");
+    expect(warnings.map((e) => e.description)).toEqual([expect.stringContaining("No price is known for scripted-1")]);
+    expect((await usageFor(task.id)).map((u) => u.estimatedCostUsd)).toEqual([null]);
   });
 
   it("fails clearly for disabled agents and empty responses", async () => {

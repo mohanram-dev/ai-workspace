@@ -65,12 +65,20 @@ export interface CompletedResponse {
   usage: TokenUsage;
 }
 
+/** A model's price in USD per 1M tokens. */
+export interface ModelPrice {
+  inputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+}
+
 export interface ModelInfo {
   id: string;
   label: string;
   provider: string;
   inputTokenLimit: number | null;
   outputTokenLimit: number | null;
+  /** The price the provider publishes with its model list (OpenRouter does), when it does. */
+  price?: ModelPrice | null;
 }
 
 /**

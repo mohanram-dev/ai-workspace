@@ -1,6 +1,6 @@
 export { completeChat } from "./complete";
 export { isProviderError, ProviderError, type ProviderErrorCode } from "./errors";
-export { estimateCostUsd } from "./pricing";
+export { costFromPrice, estimateCostUsd } from "./pricing";
 export { GeminiProvider, parseRetryDelay, toGeminiContents, toolNameMap, type GeminiClient } from "./providers/gemini";
 export {
   OpenAICompatibleProvider,
@@ -8,5 +8,5 @@ export {
   toOpenAIMessages,
   type OpenAICompatibleProviderOptions,
 } from "./providers/openai-compatible";
-export { ProviderRegistry, type ResolvedModel } from "./registry";
+export { ProviderRegistry, type ProviderRegistryOptions, type ResolvedModel } from "./registry";
 export type * from "./types";

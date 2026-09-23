@@ -229,7 +229,7 @@ Next.js route handlers ── Better Auth (sessions, rate limits)
 - The browser never talks to a model provider. API keys stay on the server.
 - A chat turn is **prepared** first (validation, ownership, provider/model resolution, persistence of the user message and an assistant placeholder). Only then is it **executed**, streaming typed events: `start → delta* → done | error`.
 - Generation is decoupled from the HTTP reader. If the client disconnects or presses Stop, the provider call is aborted and the partial reply is still saved as `cancelled`.
-- Every model call writes a `usage_log` row (tokens, estimated cost, duration, status).
+- Every model call writes a `usage_log` row (tokens, estimated cost, duration, status). The cost comes from the first source that knows the model: a price you set in `MODEL_PRICES`, the built-in Gemini list prices, then the price the provider publishes with its model list (OpenRouter does). A model none of them knows records no cost rather than a guess — and because an agent's daily budget can only count what it can price, the task timeline warns when a budgeted agent runs such a model.
 
 ### Autonomous mode (spec §27)
 
@@ -401,6 +401,7 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `GEMINI_MODELS` | no | all text models | Comma-separated allowlist for the model picker (checked against the live Gemini models API) |
 | `ROUTER_MODEL` | no | the default provider's default model | Model used by the automatic agent router; must be one `DEFAULT_PROVIDER` offers |
 | `MODEL_FALLBACKS` | no | — | Models tried in order when the chosen one cannot answer; may span providers |
+| `MODEL_PRICES` | no | — | `model=input/output` USD per 1M tokens, comma separated, for models whose provider publishes no price (a LAN gateway). Malformed entries stop startup |
 | `MAX_RUNNING_TASKS_PER_USER` | no | `3` | Concurrent agent tasks allowed per user |
 | `ALLOW_REGISTRATION` | no | `false` | Allow sign-ups after the first (admin) account |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | no | `20` | Per-user chat request limit |

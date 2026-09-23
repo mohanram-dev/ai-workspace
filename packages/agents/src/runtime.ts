@@ -1,5 +1,4 @@
 import {
-  estimateCostUsd,
   isProviderError,
   type ChatMessage,
   type ChatRequest,
@@ -369,6 +368,15 @@ export class AgentRuntime {
         status: "running",
         data: { agentName: agent.name, provider: target.provider.id, model: target.model, attempt: claimed.attempt },
       });
+      // A budget can only count calls it can price (spec §41). Say so rather
+      // than let the limit look enforced when it is not.
+      if (agent.dailyBudgetUsd !== null && !(await this.options.registry.hasPrice(target.provider.id, target.model))) {
+        await this.status(
+          state,
+          `No price is known for ${target.model}, so its calls do not count towards ${agent.name}'s $${agent.dailyBudgetUsd.toFixed(2)} daily budget. Set MODEL_PRICES to count them.`,
+          "warning",
+        );
+      }
 
       timeoutSignal = AbortSignal.timeout(agent.maxExecutionSeconds * 1000);
       state.signal = AbortSignal.any([userSignal, timeoutSignal]);
@@ -894,7 +902,7 @@ export class AgentRuntime {
 
   private async recordToolUsage(state: RunState, usage: NonNullable<Awaited<ReturnType<AnyToolDefinition["execute"]>>["usage"]>) {
     const { db } = this.options;
-    const costUsd = usage.totalTokens > 0 ? estimateCostUsd(usage.provider, usage.model, usage) : null;
+    const costUsd = await this.options.registry.estimateCostUsd(usage.provider, usage.model, usage);
     await insertUsageLog(db, {
       userId: state.task.userId,
       conversationId: state.task.conversationId,
@@ -1117,7 +1125,7 @@ export class AgentRuntime {
       throw error;
     } finally {
       const durationMs = Math.round(performance.now() - started);
-      const costUsd = usage.totalTokens > 0 ? estimateCostUsd(target.provider.id, target.model, usage) : null;
+      const costUsd = await this.options.registry.estimateCostUsd(target.provider.id, target.model, usage);
       await insertUsageLog(db, {
         userId: state.task.userId,
         conversationId: state.task.conversationId,
