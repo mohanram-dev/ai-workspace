@@ -251,7 +251,8 @@ Docker and SSH are assigned to the DevOps Agent, GitHub to the Coding and Resear
 ### Attachments (spec §3)
 
 - The composer's paperclip uploads files into the workspace on local disk (`chat-uploads/`); the message carries only a reference the server re-reads through the workspace guard, so a crafted path cannot escape.
-- In **chat**, images (PNG/JPEG/WebP) are sent to the model as pictures, **PDFs as their extracted text** (page by page, up to 30 MB and 300 pages), and other files are read as text; binary files are reported as unreadable rather than sent as rubbish. In a **task**, the prompt lists the files' workspace paths so the agent can read them with its own tools — `files.read` reads PDFs too.
+- In **chat**, images (PNG/JPEG/WebP) are sent to the model as pictures, **PDFs as their extracted text** (page by page, up to 30 MB and 300 pages), and other files are read as text; binary files are reported as unreadable rather than sent as rubbish.
+- An **agent task** carries its attachments too (`task.attachments`). The runtime reads them through the workspace guard and shows the agent the **pictures** and each document's **text** in planning and in every step — so an agent without file tools (the General Agent) still sees a screenshot or a PDF, and one with file tools also gets the workspace path to open the full file. The router is told the attachment names. A file that has gone by the time the task runs is reported in the prompt, not silently skipped; a retry keeps the attachments.
 - PDF reading uses the PDF's **text layer** (PDF.js via `unpdf`). A scanned PDF has none, and the model is told so instead of being handed an empty or invented transcription; there is no OCR. `files.edit` refuses PDFs, because editing extracted text would overwrite the document.
 - Attachments are stored on the message and shown as chips in the conversation.
 
@@ -475,7 +476,7 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` | `/api/executions` | Execution history: every task run with its origin (user, delegated, retry) |
 | `GET` | `/api/activity/events` | SSE feed of every event across your tasks |
 | `GET` | `/api/tasks?status=all\|active\|completed\|failed\|cancelled` | Task history with progress and usage |
-| `POST` | `/api/tasks` | `{prompt, agentId?, conversationId?, model?}` → 202; auto-routed when `agentId` is omitted |
+| `POST` | `/api/tasks` | `{prompt, agentId?, conversationId?, model?, projectId?, attachments?}` → 202; auto-routed when `agentId` is omitted; each attachment must still be in a workspace you own |
 | `GET` | `/api/tasks/:id` | Task with plan steps, routing decision, result or error |
 | `GET` | `/api/tasks/:id/events` | SSE stream with `Accept: text/event-stream` (resumes after `Last-Event-ID` / `?after=`); otherwise JSON `{ events }` |
 | `GET` | `/api/tasks/:id/screenshots/:screenshotId` | Stored browser screenshot (JPEG, owner only) |

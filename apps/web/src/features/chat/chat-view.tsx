@@ -91,12 +91,11 @@ export function ChatView({ conversation }: { conversation: ConversationWithMessa
 
   function onSend(content: string, attachments: MessageAttachment[]): Promise<boolean> {
     if (effectiveMode === "chat") return chat.send(content, models.selected, attachments);
-    // An agent task cannot take pictures, but the files are already in its
-    // workspace, so it is told where to find them and can read them itself.
-    const listed = attachments.map((a) => `- ${a.path} (${a.mimeType})`).join("\n");
-    const prompt = attachments.length > 0 ? `${content}\n\nAttached files, already in the workspace:\n${listed}` : content;
+    // The task carries its attachments: the agent is shown the pictures and
+    // the documents' text, whether or not it has file tools of its own.
     return chat.startTask({
-      prompt,
+      prompt: content,
+      ...(attachments.length > 0 ? { attachments } : {}),
       agentId: effectiveMode === "auto" ? undefined : effectiveMode,
       model: taskModel === DEFAULT_MODEL_VALUE ? undefined : taskModel,
       projectId: project === NO_PROJECT ? undefined : project,

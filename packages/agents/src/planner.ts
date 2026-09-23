@@ -1,3 +1,4 @@
+import type { ImageAttachment } from "@aiw/ai";
 import type { PlanningMode } from "@aiw/shared";
 import { z } from "zod";
 import { buildPlannerPrompt } from "./prompts";
@@ -32,7 +33,7 @@ const stepSchema = z.object({
  * response: a synthesis step is appended unless the plan already ends with one.
  */
 export async function planTask(
-  input: { prompt: string; system: string; planningMode: PlanningMode; maxSteps: number; toolNames?: string[] },
+  input: { prompt: string; system: string; planningMode: PlanningMode; maxSteps: number; toolNames?: string[]; images?: ImageAttachment[] },
   callModel: ModelCall,
 ): Promise<{ steps: PlannedStep[]; planned: boolean }> {
   if (input.planningMode === "never" || input.maxSteps <= 1) {
@@ -50,6 +51,8 @@ export async function planTask(
           mode: input.planningMode,
           ...(input.toolNames ? { toolNames: input.toolNames } : {}),
         }),
+        // Attached pictures are part of the task, so the plan should see them too.
+        ...(input.images?.length ? { images: input.images } : {}),
       },
     ],
     temperature: 0.2,

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCost, formatDuration, formatTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AgentIcon } from "../agents/agent-icon";
+import { AttachmentChips } from "../chat/attachment-picker";
 import { ActivityTimeline } from "./activity-timeline";
 import type { TaskAction } from "./api";
 import { StepList, TaskControls, TaskErrorPanel, TaskProgressBar, TaskResult } from "./task-parts";
@@ -61,6 +62,11 @@ export function TaskDetail({ initial }: { initial: TaskWithStepsDto }) {
               <TaskStatusBadge status={task.status} className="h-7 px-2.5 text-sm" />
             </div>
           </div>
+          {task.attachments.length > 0 && (
+            <div className="mt-3">
+              <AttachmentChips attachments={task.attachments} />
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <TaskControls
               status={task.status}

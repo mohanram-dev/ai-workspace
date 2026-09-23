@@ -232,11 +232,17 @@ export function useChat(options: UseChatOptions) {
 
   /** Creates an agent task; its progress is rendered by the task reply component. */
   const startTask = useCallback(
-    async (input: { prompt: string; agentId?: string | undefined; model?: string | undefined; projectId?: string | undefined }): Promise<boolean> => {
+    async (input: {
+      prompt: string;
+      agentId?: string | undefined;
+      model?: string | undefined;
+      projectId?: string | undefined;
+      attachments?: MessageAttachment[];
+    }): Promise<boolean> => {
       if (abortRef.current || status !== "idle") return false;
       setStatus("submitting");
       setError(null);
-      const optimistic = localMessage("user", input.prompt, "completed");
+      const optimistic = localMessage("user", input.prompt, "completed", input.attachments ?? []);
       setMessages((current) => [...current, optimistic]);
       try {
         const created = await createTask({
@@ -245,6 +251,7 @@ export function useChat(options: UseChatOptions) {
           ...(conversationId ? { conversationId } : {}),
           ...(input.model ? { model: input.model } : {}),
           ...(input.projectId ? { projectId: input.projectId } : {}),
+          ...(input.attachments?.length ? { attachments: input.attachments } : {}),
         });
         setMessages((current) => [
           ...current.filter((m) => m.id !== optimistic.id),

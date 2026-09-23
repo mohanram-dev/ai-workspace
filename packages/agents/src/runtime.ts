@@ -1,3 +1,4 @@
+import { readFile, stat } from "node:fs/promises";
 import {
   isProviderError,
   type ChatMessage,
@@ -41,6 +42,8 @@ import {
 } from "@aiw/database";
 import type { TaskError, TaskEventType, TaskStatus } from "@aiw/shared";
 import {
+  attachmentContent,
+  attachmentSizeLimit,
   decidePermission,
   isToolError,
   toolParameters,
@@ -390,13 +393,18 @@ export class AgentRuntime {
         conversationId: claimed.conversationId,
       });
       const system = [buildAgentSystemPrompt(agent, this.now(), tools), buildMemoryNotice(memories)].filter(Boolean).join(SECTION_BREAK);
+      // What the user attached is part of the task: documents join its text,
+      // pictures ride along with it, in planning and in every step.
+      const attached = await this.readAttachments(claimed);
+      const taskPrompt = attached.text ? `${claimed.prompt}${SECTION_BREAK}${attached.text}` : claimed.prompt;
+      const images = attached.images.length ? { images: attached.images } : {};
 
       let steps = await listTaskSteps(db, taskId);
       if (steps.length === 0) {
         throwIfCancelled(state.signal);
         await this.status(state, "Creating a plan…");
         const plan = await planTask(
-          { prompt: claimed.prompt, system, planningMode: agent.planningMode, maxSteps: agent.maxSteps, toolNames: tools.map((t) => t.name) },
+          { prompt: taskPrompt, system, planningMode: agent.planningMode, maxSteps: agent.maxSteps, toolNames: tools.map((t) => t.name), ...images },
           (request) => this.callModel(state, target, "planning", request),
         );
         steps = await insertTaskSteps(
@@ -441,7 +449,7 @@ export class AgentRuntime {
           system,
           messages: [
             ...history,
-            { role: "user", content: this.stepPrompt(claimed.prompt, steps, step, kind, tools.length ? await this.completedActions(taskId) : [], previousError) },
+            { role: "user", content: this.stepPrompt(taskPrompt, steps, step, kind, tools.length ? await this.completedActions(taskId) : [], previousError), ...images },
           ],
           temperature: agent.temperature,
           maxOutputTokens: agent.maxOutputTokens,
@@ -562,6 +570,45 @@ export class AgentRuntime {
   private workspaceFor(userId: string, projectId: string | null): Workspace {
     if (!this.options.workspaceRoot) throw new Error("AgentRuntime requires workspaceRoot when tools are configured");
     return projectWorkspace(this.options.workspaceRoot, userId, projectId);
+  }
+
+  /**
+   * The files attached to the task (spec §3), read through the workspace guard
+   * whether or not the agent has file tools: pictures for the model to look at,
+   * and a section with each document's text (a PDF's text layer included). A
+   * file that has gone or grown too large is reported, never skipped silently.
+   */
+  private async readAttachments(task: Task): Promise<{ images: ImageAttachment[]; text: string }> {
+    const refs = task.attachments ?? [];
+    if (refs.length === 0) return { images: [], text: "" };
+    const root = this.options.workspaceRoot;
+    const images: ImageAttachment[] = [];
+    const listed: string[] = [];
+    const contents: string[] = [];
+    for (const ref of refs) {
+      // A file tool can only reach an attachment in this task's own workspace.
+      const reachable = (ref.projectId ?? null) === (task.projectId ?? null);
+      listed.push(`- ${ref.name} (${ref.mimeType})${reachable ? `, in your workspace at ${ref.path}` : ""}`);
+      if (!root) {
+        contents.push(`[Attached file "${ref.name}" could not be read on this server.]`);
+        continue;
+      }
+      try {
+        const absolute = await projectWorkspace(root, task.userId, ref.projectId ?? null).resolve(ref.path, { mustExist: true });
+        const info = await stat(absolute);
+        if (!info.isFile() || info.size > attachmentSizeLimit(ref.name, ref.mimeType)) {
+          contents.push(`[Attached file "${ref.name}" is too large to read, or is not a file.]`);
+          continue;
+        }
+        const content = await attachmentContent(ref.name, ref.mimeType, await readFile(absolute));
+        if (content.kind === "image") images.push({ mimeType: content.mimeType, data: content.data.toString("base64") });
+        else contents.push(content.text);
+      } catch {
+        contents.push(`[Attached file "${ref.name}" is no longer in the workspace.]`);
+      }
+    }
+    const seen = images.length ? ["", `${images.length === 1 ? "The attached image is" : "The attached images are"} included with this message.`] : [];
+    return { images, text: ["## Attached files", ...listed, ...seen, ...(contents.length ? ["", ...contents] : [])].join("\n") };
   }
 
   /**
@@ -956,7 +1003,10 @@ export class AgentRuntime {
     const routingSignal = AbortSignal.any([state.signal, AbortSignal.timeout(this.options.routingTimeoutMs ?? 60_000)]);
     // Routing runs on a copy, because it carries its own timeout signal.
     const routingState: RunState = { ...state, signal: routingSignal };
-    const decision = await routeTask(task.prompt, candidates, (request) => this.callModel(routingState, target, "routing", request));
+    // The router sees attachment names too: "summarise this" means little without them.
+    const names = (task.attachments ?? []).map((a) => a.name);
+    const routingPrompt = names.length ? `${task.prompt}${SECTION_BREAK}Attached files: ${names.join(", ")}` : task.prompt;
+    const decision = await routeTask(routingPrompt, candidates, (request) => this.callModel(routingState, target, "routing", request));
     // A fallback the routing call landed on is written to that copy, so carry
     // it back: otherwise planning pays the failed model's full backoff again.
     state.fallbackModel = routingState.fallbackModel;

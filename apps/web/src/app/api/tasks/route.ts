@@ -2,6 +2,7 @@ import { getDatabase, listTasksForUser, listTaskStepsForTasks } from "@aiw/datab
 import { createTaskSchema, listTasksQuerySchema, type CreateTaskResponse, type TaskStatus } from "@aiw/shared";
 import { toTaskDto } from "@/server/agent-dto";
 import { getAgentServices } from "@/server/agents";
+import { checkAttachments } from "@/server/chat/attachments";
 import { getChatRateLimiter } from "@/server/chat/deps";
 import { toConversationDto, toMessageDto } from "@/server/dto";
 import { getServerEnv } from "@/server/env";
@@ -46,6 +47,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const input = await readJson(request, createTaskSchema);
+    // Each file must still be in a workspace this user owns before the task is stored.
+    if (input.attachments?.length) await checkAttachments(user.id, input.attachments);
     const created = await getAgentServices().tasks.createTask(user.id, input);
     const body: CreateTaskResponse = {
       task: toTaskDto(created.task, []),
