@@ -95,7 +95,9 @@ describe("schedule.create (spec §26)", () => {
       trigger: "daily",
       timeOfDay: "09:00",
       timezone: "Asia/Kolkata",
-      nextRunAt: new Date(),
+      // Not due: only its time zone matters here, and a due schedule would be
+      // fired by any scheduler test that runs after this file.
+      nextRunAt: new Date(Date.now() + 86_400_000),
     });
 
     await run(byName("schedule.create"), { name: "Inherits", prompt: "go", trigger: "daily", timeOfDay: "07:00" });
