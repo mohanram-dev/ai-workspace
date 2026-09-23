@@ -1,6 +1,7 @@
 import { mkdir, opendir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { extractPdfText, isPdf, looksLikePdf, MAX_PDF_BYTES } from "../pdf";
 import { ToolError, type AnyToolDefinition, type ToolContext } from "../types";
 import type { Workspace } from "../workspace";
 
@@ -46,10 +47,33 @@ async function walk(
   return false;
 }
 
-async function readTextFile(absolute: string, context: ToolContext): Promise<{ text: string; bytes: number; truncated: boolean }> {
+async function readTextFile(
+  absolute: string,
+  context: ToolContext,
+  options: { pdf?: boolean } = {},
+): Promise<{ text: string; bytes: number; truncated: boolean; pdf?: { totalPages: number; pagesRead: number } }> {
   const info = await stat(absolute);
   if (info.isDirectory()) throw new ToolError("invalid_input", "That path is a directory. Use files.list instead.");
+  if (options.pdf && looksLikePdf(absolute) && info.size > MAX_PDF_BYTES) {
+    throw new ToolError("invalid_input", `The PDF is larger than ${MAX_PDF_BYTES / 1024 / 1024} MB, too large to read.`);
+  }
   const buffer = await readFile(absolute);
+  if (isPdf(buffer)) {
+    // Only reading understands PDFs. Editing one as text would write the
+    // extracted text over the document, so every other caller refuses it.
+    if (!options.pdf) throw new ToolError("invalid_input", "This is a PDF. It can be read with files.read, but not edited as text.");
+    const pdf = await extractPdfText(buffer, { signal: context.signal });
+    if (!pdf.hasText) {
+      throw new ToolError("invalid_input", "This PDF has no text layer (its pages are probably scanned images), so there is no text to read.");
+    }
+    context.report({ type: "FILE_READ", path: context.workspace.relative(absolute), bytes: buffer.length });
+    return {
+      text: pdf.text.slice(0, MAX_READ_BYTES),
+      bytes: buffer.length,
+      truncated: pdf.text.length > MAX_READ_BYTES,
+      pdf: { totalPages: pdf.totalPages, pagesRead: pdf.pagesRead },
+    };
+  }
   if (isBinary(buffer)) throw new ToolError("invalid_input", "The file appears to be binary and cannot be read as text.");
   const truncated = buffer.length > MAX_READ_BYTES;
   const text = buffer.subarray(0, MAX_READ_BYTES).toString("utf8");
@@ -87,7 +111,8 @@ const listTool = {
 
 const readTool = {
   name: "files.read",
-  description: "Read a UTF-8 text file from the workspace, optionally a line range.",
+  description:
+    "Read a UTF-8 text file, or the text of a PDF, from the workspace, optionally a line range. PDF text comes page by page under '--- Page N ---' lines.",
   category: "files",
   permission: "READ",
   timeoutMs: 15_000,
@@ -99,16 +124,19 @@ const readTool = {
   availability: available,
   async execute(input, context) {
     const absolute = await context.workspace.resolve(input.path, { mustExist: true });
-    const { text, bytes, truncated } = await readTextFile(absolute, context);
+    const { text, bytes, truncated, pdf } = await readTextFile(absolute, context, { pdf: true });
     const lines = text.split(/\r?\n/);
     const start = input.startLine ?? 1;
     const end = Math.min(input.endLine ?? lines.length, lines.length);
     const selected = lines.slice(start - 1, end).join("\n");
     const rel = context.workspace.relative(absolute);
+    const pages = pdf
+      ? ` (PDF, ${pdf.totalPages} page${pdf.totalPages === 1 ? "" : "s"}${pdf.pagesRead < pdf.totalPages ? `, first ${pdf.pagesRead} read` : ""})`
+      : "";
     return {
-      output: { path: rel, bytes, lines: lines.length, startLine: start, endLine: end, truncated, content: selected },
-      summary: `Read ${rel} (${bytes} bytes)`,
-      content: `File ${rel}, lines ${start}-${end} of ${lines.length}${truncated ? " (file truncated to 256 KB)" : ""}:\n${selected}`,
+      output: { path: rel, bytes, lines: lines.length, startLine: start, endLine: end, truncated, content: selected, ...(pdf ? { pdf } : {}) },
+      summary: `Read ${rel}${pages || ` (${bytes} bytes)`}`,
+      content: `File ${rel}${pages}, lines ${start}-${end} of ${lines.length}${truncated ? " (text truncated to 256 KB)" : ""}:\n${selected}`,
     };
   },
 } satisfies AnyToolDefinition;

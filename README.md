@@ -251,7 +251,8 @@ Docker and SSH are assigned to the DevOps Agent, GitHub to the Coding and Resear
 ### Attachments (spec §3)
 
 - The composer's paperclip uploads files into the workspace on local disk (`chat-uploads/`); the message carries only a reference the server re-reads through the workspace guard, so a crafted path cannot escape.
-- In **chat**, images (PNG/JPEG/WebP) are sent to the model as pictures and other files are read as text; binary files are reported as unreadable rather than sent as rubbish. In a **task**, the prompt lists the files' workspace paths so the agent can read them with its own tools.
+- In **chat**, images (PNG/JPEG/WebP) are sent to the model as pictures, **PDFs as their extracted text** (page by page, up to 30 MB and 300 pages), and other files are read as text; binary files are reported as unreadable rather than sent as rubbish. In a **task**, the prompt lists the files' workspace paths so the agent can read them with its own tools — `files.read` reads PDFs too.
+- PDF reading uses the PDF's **text layer** (PDF.js via `unpdf`). A scanned PDF has none, and the model is told so instead of being handed an empty or invented transcription; there is no OCR. `files.edit` refuses PDFs, because editing extracted text would overwrite the document.
 - Attachments are stored on the message and shown as chips in the conversation.
 
 ### Files page (spec §24)

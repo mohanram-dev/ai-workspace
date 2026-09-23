@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import type { ImageAttachment } from "@aiw/ai";
 import { isAttachableImage, MAX_ATTACHMENT_TEXT_CHARS, type MessageAttachment } from "@aiw/shared";
+import { extractPdfText, isPdf, isToolError, looksLikePdf, MAX_PDF_BYTES } from "@aiw/tools";
 import { resolveWorkspace } from "@/server/files";
 import { HttpError } from "@/server/http";
 
@@ -37,13 +38,22 @@ export async function prepareAttachments(userId: string, attachments: MessageAtt
 
     const info = await stat(absolute);
     if (!info.isFile()) throw new HttpError(400, "bad_request", `"${attachment.name}" is not a file.`);
-    if (info.size > MAX_ATTACHMENT_BYTES) {
-      throw new HttpError(413, "bad_request", `"${attachment.name}" is larger than ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB.`);
+    // A PDF becomes text of bounded length, so its size does not reach the model.
+    const limit = looksLikePdf(attachment.name, attachment.mimeType) ? MAX_PDF_BYTES : MAX_ATTACHMENT_BYTES;
+    if (info.size > limit) {
+      throw new HttpError(413, "bad_request", `"${attachment.name}" is larger than ${limit / 1024 / 1024} MB.`);
     }
 
     const bytes = await readFile(absolute);
     if (isAttachableImage(attachment.mimeType)) {
       images.push({ mimeType: attachment.mimeType as ImageAttachment["mimeType"], data: bytes.toString("base64") });
+      continue;
+    }
+
+    // Checked before the binary probe: a PDF often has no zero byte in its
+    // first kilobytes, and would otherwise be sent to the model as mojibake.
+    if (isPdf(bytes)) {
+      notes.push(await pdfNote(attachment.name, bytes));
       continue;
     }
 
@@ -60,4 +70,20 @@ export async function prepareAttachments(userId: string, attachments: MessageAtt
   }
 
   return { images, text: notes.join("\n\n") };
+}
+
+/** The PDF's text for the prompt, or a plain statement of why there is none. */
+async function pdfNote(name: string, bytes: Buffer): Promise<string> {
+  try {
+    const pdf = await extractPdfText(bytes);
+    if (!pdf.hasText) {
+      return `[Attached PDF "${name}" has no text layer (its pages are probably scanned images), so its contents could not be read.]`;
+    }
+    const clipped = pdf.text.length > MAX_ATTACHMENT_TEXT_CHARS ? `${pdf.text.slice(0, MAX_ATTACHMENT_TEXT_CHARS)}\n… (truncated)` : pdf.text;
+    const pages = pdf.pagesRead < pdf.totalPages ? `, first ${pdf.pagesRead} of ${pdf.totalPages} pages` : `, ${pdf.totalPages} page${pdf.totalPages === 1 ? "" : "s"}`;
+    return `--- Attached PDF: ${name}${pages} ---\n${clipped}`;
+  } catch (error) {
+    const reason = isToolError(error) ? error.message : "It could not be read.";
+    return `[Attached PDF "${name}" could not be read: ${reason}]`;
+  }
 }
