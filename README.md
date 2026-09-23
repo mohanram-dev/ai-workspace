@@ -12,7 +12,7 @@ ChatGPT-style chat, specialist agents with real tools (files, git, terminal, web
 
 The original product specification this was built from is kept verbatim in [docs/spec.md](docs/spec.md).
 
-> **Current status: Phase 12 (Production).** Authentication, the database, the Gemini provider, streaming chat, configurable agents, automatic routing, the task runtime and live execution (SSE timeline, Pause / Resume / Stop / Continue / Retry) are implemented. Agents call real tools: workspace files, git, a terminal (disabled by default), web search, web page fetching, tools from **MCP servers** (Streamable HTTP, and stdio for administrators), a **real headless browser** (open, click, type, select, scroll) with a live preview and stored screenshots, and **computer use**: controlling the server's own screen, mouse and keyboard, with the screenshot sent to the model. Each agent gets the tools and permissions assigned to it, and **destructive actions pause the task until you approve or reject them**. Work can be grouped into **projects** with their own files and memory, and there is a **file browser** over the agent workspaces. **Schedules** run agents on their own — daily, weekly, monthly, on an interval, on a cron expression or once. A **Manager Agent** can **delegate** pieces of work to other agents, within limits on depth, count, time and budget. For production there are **Docker images, a Redis/BullMQ worker tier, health and readiness endpoints and backup scripts**. Their sections are labelled `NOT IMPLEMENTED` with the phase that delivers them. Until approvals exist (Phase 8), `DESTRUCTIVE` actions are always blocked.
+> **Current status: Phase 12 (Production).** Authentication, the database, the Gemini provider, streaming chat, configurable agents, automatic routing, the task runtime and live execution (SSE timeline, Pause / Resume / Stop / Continue / Retry) are implemented. Agents call real tools: workspace files, git, a terminal (disabled by default), web search, web page fetching, tools from **MCP servers** (Streamable HTTP, and stdio for administrators), a **real headless browser** (open, click, type, select, scroll) with a live preview and stored screenshots, and **computer use**: controlling the server's own screen, mouse and keyboard, with the screenshot sent to the model. Each agent gets the tools and permissions assigned to it, and **destructive actions pause the task until you approve or reject them**. Work can be grouped into **projects** with their own files and memory, and there is a **file browser** over the agent workspaces. **Schedules** run agents on their own — daily, weekly, monthly, on an interval, on a cron expression or once. A **Manager Agent** can **delegate** pieces of work to other agents, within limits on depth, count, time and budget. For production there are **Docker images, a Redis/BullMQ worker tier, health and readiness endpoints and backup scripts**. What is not built is labelled `NOT IMPLEMENTED` where it appears.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ EventSource in the browser → timeline, status line, live output, snapshot refr
 step model call (tools declared) ──► tool call(s) ──► AgentRuntime.executeToolCall
    │    ├─ assigned to the agent?          no → denied (not_found)
    │    ├─ Zod input validation            bad → failed (invalid_input)
-   │    ├─ permission decision             READ auto · WRITE/EXECUTE/NETWORK need a grant · DESTRUCTIVE blocked
+   │    ├─ permission decision             READ auto · WRITE/EXECUTE/NETWORK need a grant · DESTRUCTIVE asks you
    │    ├─ run with timeout + task abort signal, inside the user's workspace
    │    └─ tool_call row · TOOL_CALL_* / FILE_* / TERMINAL_* / PAGE_READ events · live terminal deltas
    └─◄ results (and Gemini thought signatures) fed back until the model answers or the tool-call limit is hit
@@ -72,10 +72,10 @@ step model call (tools declared) ──► tool call(s) ──► AgentRuntime.e
 | --- | --- | --- |
 | `files.list`, `files.read`, `files.search` | READ | Relative paths only. Traversal, absolute paths and symlinks that escape are rejected |
 | `files.write`, `files.edit` | WRITE | Exact-match edits; size caps |
-| `files.delete` | DESTRUCTIVE | Always blocked until Phase 8 |
+| `files.delete` | DESTRUCTIVE | Waits for your approval |
 | `git.status`, `git.diff`, `git.log` | READ | Hooks, fsmonitor, pager and the `file://` protocol are disabled |
 | `git.init`, `git.add`, `git.commit` | WRITE | |
-| `terminal.run` | EXECUTE | `{program, args}` with no shell. Allowlisted programs only, timeout, output cap, env stripped of secrets. Destructive patterns (`rm`, `git push --force`, `docker rm`, …) are classified DESTRUCTIVE and blocked |
+| `terminal.run` | EXECUTE | `{program, args}` with no shell. Allowlisted programs only, timeout, output cap, env stripped of secrets. Destructive patterns (`rm`, `git push --force`, `docker rm`, …) are classified DESTRUCTIVE and wait for your approval |
 | `web.search` | NETWORK | Gemini Google Search grounding (default) or SearXNG |
 | `web.fetch` | NETWORK | http/https only, private/loopback/link-local addresses refused at the socket and on every redirect, size and time caps, readable-text extraction |
 
@@ -98,7 +98,7 @@ AgentRuntime ◄── McpToolSource.toolsForUser(userId) ── tools as `<pref
 ```
 
 - **Servers are per user.** Each has a tool name prefix (immutable), transport, URL or command, encrypted headers or environment variables, a per-call timeout and an enabled switch. Adding a server tests the connection and discovers its tools; **Test and refresh tools** repeats that. Tools that disappear are removed and unassigned from agents; deleting a server unassigns all its tools.
-- **Permissions per tool.** The default level comes from the server's annotations: `destructiveHint` → DESTRUCTIVE (blocked), `readOnlyHint` → READ, anything else → EXECUTE. Annotations are hints from the server, so each tool's level can be overridden and each tool can be disabled. Agents still need each tool assigned, plus the grant for its level.
+- **Permissions per tool.** The default level comes from the server's annotations: `destructiveHint` → DESTRUCTIVE (asks for approval), `readOnlyHint` → READ, anything else → EXECUTE. Annotations are hints from the server, so each tool's level can be overridden and each tool can be disabled. Agents still need each tool assigned, plus the grant for its level.
 - **stdio servers run a command on the host** without a sandbox. They are disabled unless `MCP_STDIO_ENABLED=true`, and even then only administrators can add or change them. The process gets only safe default variables (PATH, HOME, …) plus its configured variables, never this app's secrets. It starts in the owner's workspace and exits when the app exits.
 - **http servers** go through the same SSRF protection as `web.fetch`: loopback, private and metadata addresses are refused unless `MCP_ALLOW_PRIVATE_NETWORK=true`.
 - **Secrets** (header and env values) are encrypted with AES-256-GCM using a key derived from `BETTER_AUTH_SECRET`, are write-only in the API and UI, and never appear in audit logs. Rotating `BETTER_AUTH_SECRET` makes them unreadable; re-enter them.
@@ -528,7 +528,7 @@ Errors always use `{ "error": { "code", "message", "details?" } }`. Internal err
 - Computer use (Phase 7): off by default and refused unless enabled; one task at a time; screenshots and frames are owner-only; the desktop session closes when the task ends, stops or idles.
 - Browser (Phase 6): every request from the agent browser goes through the egress proxy with the private-address guard; isolated context per task; downloads, uploads and service workers blocked; screenshots and frames are owner-only; session limits and idle timeouts.
 - MCP (Phase 5): encrypted write-only secrets, stdio restricted to administrators behind `MCP_STDIO_ENABLED`, secret-free child environment, SSRF-guarded HTTP transport, per-tool permission levels and enablement, per-user rate limit on connection tests, audit log entries for server and tool changes.
-- Tools (Phase 4): per-agent tool assignment and permission grants, DESTRUCTIVE always blocked, per-task tool-call limit, workspace path guard with symlink checks, `shell: false` with a program allowlist and secret-free environment, git hooks disabled, SSRF protection on web fetches, output caps, and a `tool_call` record for every attempt, including denials.
+- Tools (Phase 4): per-agent tool assignment and permission grants, DESTRUCTIVE always waits for a human (Phase 8), per-task tool-call limit, workspace path guard with symlink checks, `shell: false` with a program allowlist and secret-free environment, git hooks disabled, SSRF protection on web fetches, output caps, and a `tool_call` record for every attempt, including denials.
 
 ## Roadmap
 
