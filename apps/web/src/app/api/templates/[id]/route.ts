@@ -3,7 +3,8 @@ import { updateTemplateSchema } from "@aiw/shared";
 import { getServerEnv } from "@/server/env";
 import { assertSameOrigin, errorResponse, HttpError, isUuid, readJson } from "@/server/http";
 import { requireApiSession } from "@/server/session";
-import { assertTemplateTargets, toTemplateDto } from "@/server/templates";
+import { assertOwnAgentAndProject } from "@/server/ownership";
+import { toTemplateDto } from "@/server/templates";
 
 type Context = RouteContext<"/api/templates/[id]">;
 
@@ -21,7 +22,7 @@ export async function PATCH(request: Request, ctx: Context): Promise<Response> {
     const id = await templateId(ctx);
     const changes = await readJson(request, updateTemplateSchema);
     const db = getDatabase();
-    await assertTemplateTargets(db, user.id, changes);
+    await assertOwnAgentAndProject(db, user.id, changes);
 
     const updated = await updateTemplateForUser(db, user.id, id, {
       ...(changes.name !== undefined ? { name: changes.name } : {}),

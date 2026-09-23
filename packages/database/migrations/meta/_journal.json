@@ -141,6 +141,13 @@
       "when": 1790132672562,
       "tag": "0019_prompt_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790133924627,
+      "tag": "0020_api_tokens_and_webhooks",
+      "breakpoints": true
     }
   ]
 }

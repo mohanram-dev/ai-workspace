@@ -3,7 +3,8 @@ import { createTemplateSchema, MAX_TEMPLATES_PER_USER } from "@aiw/shared";
 import { getServerEnv } from "@/server/env";
 import { assertSameOrigin, errorResponse, HttpError, readJson } from "@/server/http";
 import { requireApiSession } from "@/server/session";
-import { assertTemplateTargets, toTemplateDto } from "@/server/templates";
+import { assertOwnAgentAndProject } from "@/server/ownership";
+import { toTemplateDto } from "@/server/templates";
 
 /** GET /api/templates — the user's saved prompts, most recently used first. */
 export async function GET(request: Request): Promise<Response> {
@@ -23,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
     const { user } = await requireApiSession(request);
     const input = await readJson(request, createTemplateSchema);
     const db = getDatabase();
-    await assertTemplateTargets(db, user.id, input);
+    await assertOwnAgentAndProject(db, user.id, input);
     if ((await countTemplatesForUser(db, user.id)) >= MAX_TEMPLATES_PER_USER) {
       throw new HttpError(409, "conflict", `You already have ${MAX_TEMPLATES_PER_USER} templates. Delete one to save another.`);
     }

@@ -124,7 +124,7 @@ data/workspaces/          per-user agent workspaces on local disk (gitignored)
 | `packages/shared/src/events.ts` | `TASK_EVENT_TYPES` + `TaskEventDataMap`. Adding an event type also requires an icon in `activity-timeline.tsx` and, if it is a tool activity, a description in `runtime.ts`. |
 | `packages/shared/src/agents.ts` | Agent config schema/DTO, `NEVER_AUTONOMOUS`. |
 | `packages/shared/src/schedules.ts` | Schedule schemas. `isValidTimeZone` uses `Intl` itself, **not** `Intl.supportedValuesOf("timeZone")` — that list holds `Asia/Calcutta` but not `Asia/Kolkata`, so it would reject the name most people type. |
-| `packages/database/src/schema/*.ts` | 23 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
+| `packages/database/src/schema/*.ts` | 25 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
 | `packages/database/src/testing.ts` | Resets the test DB; refuses any DB whose name does not end in `_test`. |
 | `apps/web/src/server/http.ts` | `HttpError`, `errorResponse`, `assertSameOrigin`, `readJson(schema)`, `isUuid`. Use these in every route. |
 | `apps/web/src/server/session.ts` | `requireApiSession` (routes) / `requirePageSession` (pages). |
@@ -149,12 +149,13 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
 | `/print/c/[conversationId]` | A conversation laid out for paper, **outside** `(workspace)` so no shell prints; it opens the print dialog (Save as PDF). `globals.css` has an `@media print` block that swaps `.dark` for the light tokens. Markdown exports and the Activity CSV are built in `server/export.ts`; CSV cells that start like a formula get an apostrophe |
+| `/webhooks` | Inbound webhooks (`webhook` table), in `MORE_NAV`. Management routes are session-only; delivery is `POST /api/hooks/:id` (public, secret-checked, `server/webhooks.ts`). Runs use one conversation per webhook with `includeHistory: false`, like schedules |
 | `/templates` | Saved prompts (`prompt_template`), in `MORE_NAV`. The composer's bookmark (`features/templates/template-picker.tsx`) lists and saves them; `{{name}}` blanks are filled through `fillTemplate` in `@aiw/shared`, used by server and browser alike. `/?template=<id>` applies one on the new-task page, then drops the parameter |
 | `/schedules` | Created from the form **or from a chat message** — `schedule.create` is DESTRUCTIVE, so the agent's proposal waits for your approval. Cron/daily/weekly/monthly/interval/once + run history. Every run of a schedule goes to **one conversation** (`schedule.conversation_id`, named after the schedule) through `startScheduleTask` in `@aiw/scheduler`, shared by the ticker and Run now; runs are created with `includeHistory: false` so they stay independent, and a busy conversation makes the run `skipped`. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
 | `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
 | `/mcp`, `/mcp/new`, `/mcp/[serverId]` | MCP servers, tool discovery, per-tool permissions |
 | `/activity` | Observability dashboard + live event feed |
-| `/settings` | Providers, account |
+| `/settings` | Providers, account, API tokens |
 | `/sign-in`, `/sign-up` | Auth. First account becomes admin; further sign-ups need `ALLOW_REGISTRATION=true` |
 
 Mobile bottom nav: Chat · Tasks · Agents · Activity · Settings.
@@ -197,14 +198,15 @@ export async function POST(request: Request) {
 
 PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per area; all tables are exported from `schema/index.ts` and re-exported as `schema` from `@aiw/database`.
 
-**Tables (23):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log` · `prompt_template`.
+**Tables (25):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log` · `prompt_template` · `api_token webhook`.
 
 **Conventions**
 - UUID primary keys (`defaultRandom`), `created_at`/`updated_at` timestamptz, `onDelete` cascades from `user`.
 - Access goes through **repositories** (`src/repositories/*.ts`): `getXForUser(db, userId, id)` is the ownership check; never query a user's rows without the userId filter.
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 20 migrations exist, `0000_init` → `0019_prompt_templates`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
+- Never put a `Date` inside a raw `sql` fragment in a query: postgres-js receives it unencoded and throws (`The "string" argument must be … Received an instance of Date`). Use the typed operators (`lt`, `gte`, …), which encode it through the column. Caught by a test in `integrations.test.ts`.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 21 migrations exist, `0000_init` → `0020_api_tokens_and_webhooks`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---
@@ -214,6 +216,8 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Better Auth, email + password (min 10 chars), 7-day sessions refreshed daily, secure cookies when `APP_URL` is https, rate limits (5 sign-ins/min, 5 sign-ups/hour per IP).
 - `user.role` is `admin | member`. **First account becomes admin**; later sign-ups are refused unless `ALLOW_REGISTRATION=true`. The role field has `input: false` so clients cannot set it.
 - Admin-only today: stdio MCP servers (`isAdmin` in `server/mcp.ts`). Everything else is per-user ownership.
+- **Personal API tokens** (`api_token`, SHA-256 only) authenticate through `requireApiUser` in `server/api-tokens.ts`, used by exactly three routes: `GET`/`POST /api/tasks` and `GET /api/tasks/:id`. Every other route stays session-only; do not widen that list casually — a token is a standing key, and token routes must not be able to mint tokens.
+- **`/api/hooks/:id` is public** (no session): the webhook's secret is the authorisation. Check it before anything else costs money (the rate limit counts only verified deliveries).
 - `proxy.ts` redirects cookie-less visitors to `/sign-in` but is **optimistic**: every page and route still validates the session server-side. Do not rely on the proxy for security.
 - Trusted origin = `APP_URL`. If the server runs on a different port/host than `APP_URL`, sign-in fails with "Invalid origin" — this is intentional CSRF protection, not a bug.
 
@@ -283,9 +287,10 @@ No external state library. Patterns in use:
 4. **SSRF**: `web.fetch`, MCP http, GitHub and the browser use socket-level DNS checks that refuse private/loopback addresses (re-checked on redirects); the browser goes through a local egress proxy. The `*_ALLOW_PRIVATE_NETWORK` flags are off by default.
 5. **Terminal / SSH / Docker** run as the server's OS user — **not a sandbox**. Off by default; `terminal.run` uses an allowlist and `shell: false`; commands are classified and destructive ones need approval; `ssh.run` can only reach hosts named in `SSH_HOSTS`; Docker container args are validated as plain identifiers.
 6. **DESTRUCTIVE** always needs a human unless approved-for-task or autonomously trusted; `terminal.run`/`ssh.run` are never trustable (`NEVER_AUTONOMOUS`). Autonomous actions are audited.
-7. MCP header/env secrets are encrypted at rest (`SecretBox`, key derived from `BETTER_AUTH_SECRET`) and never returned to the client after saving.
+7. MCP header/env secrets and webhook secrets are encrypted at rest (`SecretBox`, key derived from `BETTER_AUTH_SECRET`) and never returned to the client after saving; API tokens are stored only as a SHA-256. Changing `BETTER_AUTH_SECRET` makes stored webhook secrets unreadable: each webhook then needs a new secret.
+   A webhook payload reaches the agent inside a fence longer than any backtick run in it, under an explicit "treat as data" notice (`webhookPrompt`) — keep both; the payload is attacker-controlled text.
 8. Security headers (CSP, nosniff, DENY framing, HSTS on https) are set in `next.config.ts`.
-9. Audit log (`audit_log`) records task controls, approvals, memory writes, file creation, autonomous actions, MCP changes.
+9. Audit log (`audit_log`) records task controls, approvals, memory writes, file creation, autonomous actions, MCP changes, API token creation and revocation, webhook changes and every webhook delivery.
 10. Per-agent limits: `maxExecutionSeconds`, `maxToolCalls`, `dailyBudgetUsd` (execution stops on `budget_exceeded`); delegation depth/count/time limits.
 
 ---

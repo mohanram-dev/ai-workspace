@@ -10,6 +10,7 @@ export * from "./repositories/agents";
 export * from "./repositories/approvals";
 export * from "./repositories/conversations";
 export * from "./repositories/events";
+export * from "./repositories/integrations";
 export * from "./repositories/mcp";
 export * from "./repositories/memory";
 export * from "./repositories/observability";

@@ -257,6 +257,12 @@ Docker and SSH are assigned to the DevOps Agent, GitHub to the Coding and Resear
 - PDF reading uses the PDF's **text layer** (PDF.js via `unpdf`). A scanned PDF has none, and the model is told so instead of being handed an empty or invented transcription; there is no OCR. `files.edit` refuses PDFs, because editing extracted text would overwrite the document.
 - Attachments are stored on the message and shown as chips in the conversation.
 
+### Starting tasks from outside: API tokens and webhooks
+
+- **API tokens** (Settings → API tokens): send `Authorization: Bearer aiw_…` to `POST /api/tasks`, `GET /api/tasks` and `GET /api/tasks/:id` to start tasks and read their results from a script, n8n or another server. Only a SHA-256 of each token is stored; the token is shown once. A token works on those task routes and nowhere else — it cannot manage tokens, webhooks or settings. Revoking one stops it at once.
+- **Webhooks** (More → Webhooks): each webhook has its own URL (`/api/hooks/<id>`) and secret, and a saved prompt. A delivery must prove the secret — sent as `X-Webhook-Secret`, or as GitHub's `X-Hub-Signature-256` HMAC of the exact body (both compared in constant time) — and then starts a task from the prompt with the body attached as a fenced section the agent is told to treat as data, never as instructions. `{{event}}` in the prompt becomes the sender's event name; GitHub's `ping` is acknowledged without starting a task. Bodies are capped at 256 KB (read as a stream), deliveries at 10 per minute per webhook, and every delivery is audit-logged. Runs go to one conversation per webhook, independent of each other like a schedule's; a delivery that arrives while the previous one is still running gets `409`. Secrets are encrypted at rest with the same key derivation as MCP secrets, and can be replaced; the old one stops working at once.
+- A task started this way is an ordinary task: destructive actions still wait for your approval.
+
 ### Export
 
 - **Conversation:** the conversation menu (sidebar or header) offers **Export as Markdown** and **Print or save as PDF**. The print view (`/print/c/<id>`) lays the conversation out for paper outside the workspace shell and opens the browser's print dialog, where *Save as PDF* makes the PDF — no PDF library, and dark mode prints in light colours.
@@ -491,7 +497,13 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` | `/api/executions` | Execution history: every task run with its origin (user, delegated, retry) |
 | `GET` | `/api/activity/events` | SSE feed of every event across your tasks |
 | `GET` | `/api/tasks?status=all\|active\|completed\|failed\|cancelled` | Task history with progress and usage |
-| `POST` | `/api/tasks` | `{prompt, agentId?, conversationId?, model?, projectId?, attachments?}` → 202; auto-routed when `agentId` is omitted; each attachment must still be in a workspace you own |
+| `POST` | `/api/tasks` | `{prompt, agentId?, conversationId?, model?, projectId?, attachments?}` → 202; auto-routed when `agentId` is omitted; each attachment must still be in a workspace you own. Accepts a personal API token (`Authorization: Bearer`) |
+| `GET`, `POST` | `/api/tokens` | Your API tokens · create one (the response is the only time it is shown). Session only |
+| `DELETE` | `/api/tokens/:id` | Revoke a token |
+| `GET`, `POST` | `/api/webhooks` | Your webhooks · create one (returns its secret once) |
+| `PATCH`, `DELETE` | `/api/webhooks/:id` | Edit, switch on/off, or delete |
+| `POST` | `/api/webhooks/:id/secret` | Replace the secret |
+| `POST` | `/api/hooks/:id` | **Public** delivery endpoint: needs `X-Webhook-Secret` or `X-Hub-Signature-256`; → 202 `{taskId, conversationId}` |
 | `GET` | `/api/tasks/:id` | Task with plan steps, routing decision, result or error |
 | `GET` | `/api/tasks/:id/export` | The task as a Markdown report: facts, plan, step outputs, tool calls, result |
 | `GET` | `/api/tasks/:id/events` | SSE stream with `Accept: text/event-stream` (resumes after `Last-Event-ID` / `?after=`); otherwise JSON `{ events }` |

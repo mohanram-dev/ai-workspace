@@ -1,6 +1,5 @@
-import { getAgentForUser, getProjectForUser, type Database, type PromptTemplateWithNames } from "@aiw/database";
+import type { PromptTemplateWithNames } from "@aiw/database";
 import { templateVariables, type TemplateDto } from "@aiw/shared";
-import { HttpError } from "./http";
 
 export function toTemplateDto(row: PromptTemplateWithNames): TemplateDto {
   return {
@@ -15,10 +14,4 @@ export function toTemplateDto(row: PromptTemplateWithNames): TemplateDto {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
-}
-
-/** A template may only point at the user's own agent and project. */
-export async function assertTemplateTargets(db: Database, userId: string, input: { agentId?: string | null; projectId?: string | null }): Promise<void> {
-  if (input.agentId && !(await getAgentForUser(db, userId, input.agentId))) throw new HttpError(404, "not_found", "Agent not found.");
-  if (input.projectId && !(await getProjectForUser(db, userId, input.projectId))) throw new HttpError(404, "not_found", "Project not found.");
 }
