@@ -31,6 +31,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 | AI | `@google/genai` (Gemini) and any OpenAI-compatible server (vLLM, Ollama, LiteLLM, self-hosted gateways) — registered twice: once as `openai-compatible` for a gateway you run, once as `openrouter`. Provider abstraction in `packages/ai` | |
 | Queue | Redis + BullMQ (optional worker tier) | `bullmq 6.3.4`, `ioredis 6.0.0` |
 | Browser agent | playwright-core (Chromium) behind a local SSRF egress proxy | `playwright-core 1.63.0` |
+| PDF text | `unpdf` (PDF.js serverless build) in `@aiw/tools/src/pdf.ts`; a `serverExternalPackages` entry in `next.config.ts`, because PDF.js spawns workers from `import.meta.url` | `unpdf 1.8.1` |
 | Scheduler | cron-parser + timezone maths | |
 | Tests | Vitest 5 | |
 | Lint | ESLint 9 with `eslint-config-next`, `--max-warnings 0` | |
@@ -407,6 +408,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 - **No sandbox** for `terminal.run`, `ssh.run`, Docker tools or the browser: they run as the process user (inside the worker container in production, which limits blast radius but is not isolation). This is the one genuine security gap; all three tool groups are off by default because of it.
 - Providers: **Gemini**, **OpenAI-compatible** and **OpenRouter**. The Anthropic native API is not implemented natively; reach Claude models through OpenRouter or another gateway. A gateway's `/models` may list hundreds of entries (OpenRouter: 400+), so set `OPENAI_MODELS` / `OPENROUTER_MODELS` to keep the picker usable.
 - **S3** storage is not implemented (owner's decision: local disk under `WORKSPACE_ROOT`).
+- PDFs are read from their **text layer** only: no OCR, so a scanned PDF is reported as having no text. Detection is by the `%PDF-` header, not the file name; check for it **before** any "has a zero byte" binary probe, because many PDFs have no zero byte in their first kilobytes and would pass as text. `files.read` is the only file tool that understands PDFs — `files.edit` must keep refusing them.
 - Voice input: not built (spec says "later").
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).
 - Browser: no persistent logins across tasks, no file download/upload through the page, follows the newest tab only.

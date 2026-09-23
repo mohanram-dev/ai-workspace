@@ -68,7 +68,9 @@ const nextConfig: NextConfig = {
     "@aiw/shared",
     "@aiw/tools",
   ],
-  serverExternalPackages: ["postgres", "playwright-core", "ioredis", "bullmq"],
+  // unpdf ships PDF.js, which spawns workers from import.meta.url and loads
+  // itself through a self-import; both are safest left to Node, unbundled.
+  serverExternalPackages: ["postgres", "playwright-core", "ioredis", "bullmq", "unpdf"],
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

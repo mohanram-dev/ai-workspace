@@ -12,6 +12,7 @@ import {
   createSafeLookup,
   createSshTools,
   decidePermission,
+  extractPdfText,
   extractReadableText,
   isPrivateAddress,
   parseSshHosts,
@@ -21,6 +22,7 @@ import {
   type ToolRegistry,
   Workspace,
 } from "../src";
+import { makePdf } from "../src/testing";
 import { context, tempWorkspace } from "./helpers";
 
 let ws: Awaited<ReturnType<typeof tempWorkspace>>;
@@ -142,6 +144,54 @@ describe("file tools", () => {
 
   it("marks delete as destructive", () => {
     expect(registry.get("files.delete")?.permission).toBe("DESTRUCTIVE");
+  });
+});
+
+describe("PDF reading", () => {
+  it("reads a PDF's text page by page, and a line range of it", async () => {
+    await writeFile(path.join(ws.workspace.root, "report.pdf"), makePdf(["Quarterly revenue grew 12%", "Costs fell (slightly)"]));
+    const read = await run("files.read", { path: "report.pdf" });
+    const output = read.result.output as { content: string; pdf: unknown };
+    expect(output.content).toContain("--- Page 1 ---\nQuarterly revenue grew 12%");
+    expect(output.content).toContain("--- Page 2 ---\nCosts fell (slightly)");
+    expect(output.pdf).toEqual({ totalPages: 2, pagesRead: 2 });
+    expect(read.result.summary).toBe("Read report.pdf (PDF, 2 pages)");
+    expect(read.activities[0]).toMatchObject({ type: "FILE_READ", path: "report.pdf" });
+
+    const range = await run("files.read", { path: "report.pdf", startLine: 1, endLine: 2 });
+    expect((range.result.output as { content: string }).content).toBe("--- Page 1 ---\nQuarterly revenue grew 12%");
+  });
+
+  it("recognises a PDF by its content, not its name", async () => {
+    await writeFile(path.join(ws.workspace.root, "download"), makePdf(["Invoice 42"]));
+    const read = await run("files.read", { path: "download" });
+    expect((read.result.output as { content: string }).content).toContain("Invoice 42");
+  });
+
+  it("says a scanned PDF has no text rather than returning nothing", async () => {
+    await writeFile(path.join(ws.workspace.root, "scan.pdf"), makePdf([""]));
+    await expect(run("files.read", { path: "scan.pdf" })).rejects.toMatchObject({ code: "invalid_input", message: expect.stringContaining("no text layer") });
+  });
+
+  it("reports a damaged PDF plainly", async () => {
+    await writeFile(path.join(ws.workspace.root, "broken.pdf"), "%PDF-1.7\nthis is not really a pdf");
+    await expect(run("files.read", { path: "broken.pdf" })).rejects.toMatchObject({ code: "invalid_input" });
+  });
+
+  it("will not edit a PDF as text, which would overwrite the document", async () => {
+    const pdf = makePdf(["Keep me"]);
+    await writeFile(path.join(ws.workspace.root, "doc.pdf"), pdf);
+    await expect(run("files.edit", { path: "doc.pdf", oldText: "Keep", newText: "Lose" })).rejects.toMatchObject({
+      code: "invalid_input",
+      message: expect.stringContaining("not edited as text"),
+    });
+    expect(Buffer.compare(await readFile(path.join(ws.workspace.root, "doc.pdf")), pdf)).toBe(0);
+  });
+
+  it("stops at the page limit and says how far it read", async () => {
+    const pdf = await extractPdfText(makePdf(["one", "two", "three"]), { maxPages: 2 });
+    expect(pdf).toMatchObject({ totalPages: 3, pagesRead: 2, hasText: true });
+    expect(pdf.text).not.toContain("three");
   });
 });
 
