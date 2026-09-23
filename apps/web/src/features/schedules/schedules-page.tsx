@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentDto, ProjectDto, ScheduleDto, ScheduleRunDto, ScheduleRunStatus, ScheduleWithRunsDto } from "@aiw/shared";
-import { CalendarClockIcon, ChevronDownIcon, ChevronRightIcon, Loader2Icon, PlayIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CalendarClockIcon, ChevronDownIcon, ChevronRightIcon, Loader2Icon, MessagesSquareIcon, PlayIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -128,7 +128,7 @@ export function SchedulesPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Schedules</h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Give an agent a task to run on its own: every morning, every Monday, or on a cron expression. Each run starts a normal task you can open.
+              Give an agent a task to run on its own: every morning, every Monday, or on a cron expression. Each run is a normal task you can open, and every run of a schedule is posted to that schedule&apos;s own conversation.
             </p>
           </div>
           <Button
@@ -220,6 +220,13 @@ export function SchedulesPage() {
                   <Button size="sm" variant="ghost" onClick={() => void openRuns(schedule.id)}>
                     {expanded === schedule.id ? <ChevronDownIcon /> : <ChevronRightIcon />} History
                   </Button>
+                  {schedule.conversationId && (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={`/c/${schedule.conversationId}`}>
+                        <MessagesSquareIcon /> Conversation
+                      </Link>
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setEditing(editing === schedule.id ? null : schedule.id)}>
                     Edit
                   </Button>

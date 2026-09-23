@@ -102,6 +102,11 @@ export const tasks = pgTable(
     prompt: text("prompt").notNull(),
     /** Files the user attached (spec §3): images the model looks at, documents it reads. */
     attachments: jsonb("attachments").$type<MessageAttachment[]>(),
+    /**
+     * Whether the agent sees the conversation's earlier messages. False for
+     * runs that share a conversation but must stay independent (a schedule's).
+     */
+    includeHistory: boolean("include_history").notNull().default(true),
     status: taskStatus("status").notNull().default("queued"),
     /** Set when the user asks to pause; the runtime pauses at the next step boundary. */
     pauseRequestedAt: timestamp("pause_requested_at", { withTimezone: true }),

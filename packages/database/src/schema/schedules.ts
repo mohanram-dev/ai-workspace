@@ -1,6 +1,7 @@
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { agents, tasks } from "./agents";
 import { users } from "./auth";
+import { conversations } from "./conversations";
 import { projects } from "./projects";
 
 export const scheduleTrigger = pgEnum("schedule_trigger", ["cron", "interval", "daily", "weekly", "monthly", "once"]);
@@ -35,6 +36,8 @@ export const schedules = pgTable(
     nextRunAt: timestamp("next_run_at", { withTimezone: true }),
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),
     lastTaskId: uuid("last_task_id").references(() => tasks.id, { onDelete: "set null" }),
+    /** Where this schedule's runs are posted: one conversation per schedule, created by its first run. */
+    conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
     runCount: integer("run_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

@@ -1022,7 +1022,7 @@ export class AgentRuntime {
 
   /** Prior conversation turns, excluding this task's own prompt and reply. */
   private async loadHistory(task: Task, agent: Agent): Promise<ChatMessage[]> {
-    if (!agent.useConversationHistory || !task.conversationId || agent.maxHistoryMessages === 0) return [];
+    if (!agent.useConversationHistory || !task.includeHistory || !task.conversationId || agent.maxHistoryMessages === 0) return [];
     // A delegated task only knows the instruction it was given.
     if (task.parentTaskId) return [];
 

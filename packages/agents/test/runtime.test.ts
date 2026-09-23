@@ -168,6 +168,22 @@ describe("AgentRuntime", () => {
     expect(messages[2]?.content).toContain("Now this");
   });
 
+  it("leaves the conversation's earlier turns out of a task created without history", async () => {
+    // A schedule's runs share one conversation but must not see each other.
+    const { runtime, userId, agent, provider } = await setup(() => "ok", { planningMode: "never" });
+    const conversation = await createConversation(handle.db, { userId, title: "AI news digest" });
+    await insertMessage(handle.db, { conversationId: conversation.id, role: "user", content: "Yesterday's run" });
+    await insertMessage(handle.db, { conversationId: conversation.id, role: "assistant", content: "Yesterday's digest" });
+    const task = await createTask(handle.db, { userId, agentId: agent.id, conversationId: conversation.id, prompt: "Today's run", includeHistory: false });
+    await insertMessage(handle.db, { conversationId: conversation.id, role: "user", content: "Today's run" });
+    await insertMessage(handle.db, { conversationId: conversation.id, taskId: task.id, role: "assistant", status: "streaming" });
+
+    await runtime.execute(task.id, new AbortController().signal);
+    const messages = provider.calls("step")[0]!.request.messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.content).not.toContain("Yesterday");
+  });
+
   it("reports a failed step with a readable error and keeps completed work", async () => {
     let failStepTwo = true;
     const { runtime, userId, agent, provider } = await setup((request, kind) => {

@@ -1,19 +1,29 @@
 import {
   claimDueSchedule,
+  getConversationForUser,
   insertScheduleRun,
   listDueSchedules,
+  updateConversationForUser,
   updateScheduleForUser,
   type Database,
   type Schedule,
 } from "@aiw/database";
+import { AppError, isAppError } from "@aiw/shared";
 import { nextRunAt, type TriggerSettings } from "./next-run";
 
 /** What the runner needs from the task service, kept narrow so it can be tested. */
 export interface ScheduleTaskStarter {
   createTask(
     userId: string,
-    input: { prompt: string; agentId?: string | undefined; model?: string | undefined; projectId?: string | undefined },
-  ): Promise<{ task: { id: string } }>;
+    input: {
+      prompt: string;
+      agentId?: string | undefined;
+      model?: string | undefined;
+      projectId?: string | undefined;
+      conversationId?: string | undefined;
+    },
+    options?: { includeHistory?: boolean },
+  ): Promise<{ task: { id: string }; conversation: { id: string } }>;
 }
 
 export interface SchedulerOptions {
@@ -115,17 +125,11 @@ export class Scheduler {
     if (!claimed) return false;
 
     try {
-      const created = await this.options.tasks.createTask(schedule.userId, {
-        prompt: schedule.prompt,
-        ...(schedule.agentId ? { agentId: schedule.agentId } : {}),
-        ...(schedule.model ? { model: schedule.model } : {}),
-        ...(schedule.projectId ? { projectId: schedule.projectId } : {}),
-      });
-      await updateScheduleForUser(db, schedule.userId, schedule.id, { lastTaskId: created.task.id });
+      const created = await startScheduleTask(db, this.options.tasks, schedule);
       await insertScheduleRun(db, {
         scheduleId: schedule.id,
         userId: schedule.userId,
-        taskId: created.task.id,
+        taskId: created.taskId,
         status: "started",
         scheduledFor: dueAt,
       });
@@ -143,4 +147,58 @@ export class Scheduler {
       return false;
     }
   }
+}
+
+/**
+ * Starts one run of a schedule — for the ticker and for "Run now" alike. Every
+ * run goes to the schedule's own conversation (created by its first run and
+ * named after the schedule), so a daily schedule is one entry in the sidebar,
+ * not a new conversation a day. Runs share the thread but not the context:
+ * each starts without the earlier runs as history, as it did when every run
+ * had a conversation of its own.
+ */
+export async function startScheduleTask(
+  db: Database,
+  tasks: ScheduleTaskStarter,
+  schedule: Schedule,
+): Promise<{ taskId: string; conversationId: string }> {
+  const conversationId = await scheduleConversation(db, schedule);
+  let created: Awaited<ReturnType<ScheduleTaskStarter["createTask"]>>;
+  try {
+    created = await tasks.createTask(
+      schedule.userId,
+      {
+        prompt: schedule.prompt,
+        ...(schedule.agentId ? { agentId: schedule.agentId } : {}),
+        ...(schedule.model ? { model: schedule.model } : {}),
+        ...(schedule.projectId ? { projectId: schedule.projectId } : {}),
+        ...(conversationId ? { conversationId } : {}),
+      },
+      { includeHistory: false },
+    );
+  } catch (error) {
+    // The only conflict here is the shared conversation still being busy.
+    if (isAppError(error) && error.status === 409) {
+      throw new AppError(409, "conflict", "The previous run of this schedule is still working. Wait for it to finish, or stop it.");
+    }
+    throw error;
+  }
+  if (created.conversation.id !== conversationId) {
+    // The first run, or the old conversation was deleted: this one is the schedule's now.
+    await updateConversationForUser(db, schedule.userId, created.conversation.id, { title: schedule.name });
+  }
+  await updateScheduleForUser(db, schedule.userId, schedule.id, { lastTaskId: created.task.id, conversationId: created.conversation.id });
+  return { taskId: created.task.id, conversationId: created.conversation.id };
+}
+
+/**
+ * The schedule's conversation while it still exists and is in the schedule's
+ * project. A schedule moved to another project starts a new conversation there
+ * rather than posting across projects.
+ */
+async function scheduleConversation(db: Database, schedule: Schedule): Promise<string | undefined> {
+  if (!schedule.conversationId) return undefined;
+  const conversation = await getConversationForUser(db, schedule.userId, schedule.conversationId);
+  if (!conversation || (conversation.projectId ?? null) !== (schedule.projectId ?? null)) return undefined;
+  return conversation.id;
 }
