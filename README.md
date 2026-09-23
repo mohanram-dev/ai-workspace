@@ -257,6 +257,12 @@ Docker and SSH are assigned to the DevOps Agent, GitHub to the Coding and Resear
 - PDF reading uses the PDF's **text layer** (PDF.js via `unpdf`). A scanned PDF has none, and the model is told so instead of being handed an empty or invented transcription; there is no OCR. `files.edit` refuses PDFs, because editing extracted text would overwrite the document.
 - Attachments are stored on the message and shown as chips in the conversation.
 
+### Export
+
+- **Conversation:** the conversation menu (sidebar or header) offers **Export as Markdown** and **Print or save as PDF**. The print view (`/print/c/<id>`) lays the conversation out for paper outside the workspace shell and opens the browser's print dialog, where *Save as PDF* makes the PDF — no PDF library, and dark mode prints in light colours.
+- **Task:** **Export** on the task page downloads a Markdown report — status, agent and routing reason, model, tokens, cost, the plan, every step's output, the tool calls and the result or error.
+- **Activity:** **Export CSV** downloads the period you are looking at, one row per task or one per model call. Text that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`) is prefixed with an apostrophe, because prompts and answers are user and model text.
+
 ### Templates
 
 - Save a prompt you use often, with the agent, project and model it should run with. The **bookmark** in the composer lists your templates (most recently used first) and saves what the composer holds; the **Templates** page (under More) creates, edits, deletes and starts them (`/?template=<id>`).
@@ -474,10 +480,12 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` | `/api/conversations/:id` | Conversation with messages |
 | `PATCH` | `/api/conversations/:id` | `{title?, pinned?, archived?}` |
 | `DELETE` | `/api/conversations/:id` | Delete (audit logged) |
+| `GET` | `/api/conversations/:id/export` | The conversation as a Markdown file |
 | `GET` | `/api/models` | Provider status and selectable models |
 | `GET` `POST` | `/api/agents` | List agents (built-ins are created on first access) / create a custom agent |
 | `GET` `PATCH` `DELETE` | `/api/agents/:id` | Read / update / delete (built-in agents can only be disabled) |
 | `GET` | `/api/activity` | Dashboard aggregates for a time range |
+| `GET` | `/api/activity/export?kind=tasks|usage&range=` | One row per task, or per model call, as CSV (at most 20,000 rows) |
 | `GET` | `/api/files/search` | Files whose name contains a query, anywhere in the workspace |
 | `POST` | `/api/files/create` | A new empty text file; never overwrites |
 | `GET` | `/api/executions` | Execution history: every task run with its origin (user, delegated, retry) |
@@ -485,6 +493,7 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` | `/api/tasks?status=all\|active\|completed\|failed\|cancelled` | Task history with progress and usage |
 | `POST` | `/api/tasks` | `{prompt, agentId?, conversationId?, model?, projectId?, attachments?}` → 202; auto-routed when `agentId` is omitted; each attachment must still be in a workspace you own |
 | `GET` | `/api/tasks/:id` | Task with plan steps, routing decision, result or error |
+| `GET` | `/api/tasks/:id/export` | The task as a Markdown report: facts, plan, step outputs, tool calls, result |
 | `GET` | `/api/tasks/:id/events` | SSE stream with `Accept: text/event-stream` (resumes after `Last-Event-ID` / `?after=`); otherwise JSON `{ events }` |
 | `GET` | `/api/tasks/:id/screenshots/:screenshotId` | Stored browser screenshot (JPEG, owner only) |
 | `GET` | `/api/tasks/:id/browser/frame` | Latest live browser frame (JPEG) or 204 |

@@ -1,7 +1,7 @@
 "use client";
 
 import { isActiveTaskStatus, type TaskEventOf, type TaskWithStepsDto } from "@aiw/shared";
-import { ArrowLeftIcon, BrainCircuitIcon, MessagesSquareIcon } from "lucide-react";
+import { ArrowLeftIcon, BrainCircuitIcon, DownloadIcon, MessagesSquareIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -82,6 +82,11 @@ export function TaskDetail({ initial }: { initial: TaskWithStepsDto }) {
                 </Link>
               </Button>
             )}
+            <Button variant="ghost" asChild>
+              <a href={`/api/tasks/${task.id}/export`} download>
+                <DownloadIcon /> Export
+              </a>
+            </Button>
           </div>
         </div>
 

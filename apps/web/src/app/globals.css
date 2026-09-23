@@ -129,6 +129,29 @@
   --sidebar-ring: oklch(0.65 0.15 285);
 }
 
+/*
+ * Paper is white whatever the theme: printing the dark palette puts light text
+ * on a white page (browsers drop background colours by default).
+ */
+@media print {
+  .dark {
+    color-scheme: light;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.16 0.005 285);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.16 0.005 285);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.16 0.005 285);
+    --secondary: oklch(0.967 0.001 286);
+    --secondary-foreground: oklch(0.21 0.006 285);
+    --muted: oklch(0.967 0.001 286);
+    --muted-foreground: oklch(0.52 0.012 286);
+    --accent: oklch(0.955 0.003 286);
+    --accent-foreground: oklch(0.21 0.006 285);
+    --border: oklch(0.92 0.004 286);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -221,3 +221,15 @@ export async function sumUserCostSince(db: Database, userId: string, since: Date
     .where(and(eq(usageLogs.userId, userId), gte(usageLogs.createdAt, since)));
   return Number(row?.value ?? 0);
 }
+
+export type UsageLogRow = typeof usageLogs.$inferSelect;
+
+/** One row per model call since `since`, newest first, for the Activity CSV export. */
+export async function listUsageLogsForUser(db: Database, userId: string, since: Date, limit: number): Promise<UsageLogRow[]> {
+  return db
+    .select()
+    .from(usageLogs)
+    .where(and(eq(usageLogs.userId, userId), gte(usageLogs.createdAt, since)))
+    .orderBy(desc(usageLogs.createdAt))
+    .limit(limit);
+}
