@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConversationWithMessagesDto, MessageAttachment } from "@aiw/shared";
+import type { ConversationWithMessagesDto, MessageAttachment, TemplateDto } from "@aiw/shared";
 import { AlertCircleIcon, ArrowDownIcon, KeyRoundIcon, XIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -15,6 +15,7 @@ import { EmptyState } from "./empty-state";
 import { MessageItem } from "./message-item";
 import { DEFAULT_MODEL_VALUE, ModelPicker } from "./model-picker";
 import { useChat } from "./use-chat";
+import { TemplatePicker } from "../templates/template-picker";
 import { useModels } from "./use-models";
 
 const STICK_TO_BOTTOM_PX = 120;
@@ -60,6 +61,21 @@ export function ChatView({ conversation }: { conversation: ConversationWithMessa
     }
   }
   const composerRef = useRef<ComposerHandle>(null);
+  const linkedTemplate = conversation ? null : (searchParams?.get("template") ?? null);
+
+  /** Puts a template into the composer, with the agent, project and model it was saved with. */
+  function applyTemplate(template: TemplateDto, prompt: string) {
+    composerRef.current?.setValue(prompt);
+    if (template.agent && agents.some((a) => a.id === template.agent!.id && a.enabled)) changeAgentMode(template.agent.id);
+    else if (template.project && agentMode === "chat") changeAgentMode("auto");
+    if (template.project) setProject(template.project.id);
+    if (template.model && models.models.some((m) => m.id === template.model)) {
+      if (template.agent || template.project || agentMode !== "chat") setTaskModel(template.model);
+      else models.select(template.model);
+    }
+    // A link that used a template has done its job; a refresh should not reapply it.
+    if (linkedTemplate) router.replace("/", { scroll: false });
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -209,6 +225,17 @@ export function ChatView({ conversation }: { conversation: ConversationWithMessa
           projectId={effectiveMode !== "chat" && project !== NO_PROJECT ? project : null}
           controls={
             <>
+              <TemplatePicker
+                disabled={streaming}
+                useId={linkedTemplate}
+                onUse={applyTemplate}
+                current={() => ({
+                  prompt: composerRef.current?.getValue() ?? "",
+                  agentId: effectiveMode === "auto" || effectiveMode === "chat" ? null : effectiveMode,
+                  projectId: effectiveMode !== "chat" && project !== NO_PROJECT ? project : null,
+                  model: effectiveMode === "chat" ? (models.selected ?? null) : taskModel === DEFAULT_MODEL_VALUE ? null : taskModel,
+                })}
+              />
               <AgentPicker agents={agents} value={effectiveMode} onChange={changeAgentMode} disabled={streaming} />
               {effectiveMode !== "chat" && <ProjectPicker value={project} onChange={setProject} disabled={streaming} />}
               {effectiveMode === "chat" ? (

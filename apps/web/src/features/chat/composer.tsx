@@ -9,6 +9,7 @@ import { AttachmentChips, AttachmentPicker } from "./attachment-picker";
 
 export interface ComposerHandle {
   setValue: (value: string) => void;
+  getValue: () => string;
   focus: () => void;
 }
 
@@ -48,6 +49,7 @@ export function Composer({
       setValue(next);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
+    getValue: () => value,
     focus: () => textareaRef.current?.focus(),
   }));
 
@@ -117,10 +119,13 @@ export function Composer({
         />
 
         <div className="flex items-center gap-1 px-2 pt-1 pb-2">
-          <AttachmentPicker attachments={attachments} onChange={setAttachments} projectId={projectId} disabled={disabled || streaming} />
-          {controls}
+          {/* The pickers scroll sideways when a phone runs out of room; Send stays put. */}
+          <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5">
+            <AttachmentPicker attachments={attachments} onChange={setAttachments} projectId={projectId} disabled={disabled || streaming} />
+            {controls}
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {tooLong && (
               <span className="text-xs text-destructive tabular-nums">
                 {value.length.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
