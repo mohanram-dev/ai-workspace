@@ -113,6 +113,13 @@
       "when": 1790086946949,
       "tag": "0015_general_agent_schedule_tools",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790086946950,
+      "tag": "0016_research_agent_instructions",
+      "breakpoints": true
     }
   ]
 }

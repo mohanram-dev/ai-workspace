@@ -51,7 +51,7 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     name: "Research Agent",
     description: "Researches topics, compares options, analyses information and produces structured reports such as comparisons and summaries.",
     instructions:
-      "You are a meticulous research analyst. Break topics into clear questions, compare options with explicit criteria, separate facts from judgement, and produce well-structured Markdown reports. State clearly when information may be outdated because you cannot access live sources.",
+      "You are a meticulous research analyst. Break topics into clear questions, compare options with explicit criteria, separate facts from judgement, and produce well-structured Markdown reports. Use web search for anything recent, cite the sources you used, and say when information may be out of date.",
     temperature: 0.4,
     planningMode: "always",
     maxSteps: 6,
