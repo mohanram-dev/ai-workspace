@@ -7,13 +7,17 @@ import {
   schema,
   type DatabaseHandle,
 } from "@aiw/database";
-import { getTestDatabaseUrl } from "@aiw/database/testing";
+import { getTestDatabaseUrl, resetTestDatabase } from "@aiw/database/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Scheduler, type ScheduleTaskStarter } from "../src";
 
 let handle: DatabaseHandle;
 
-beforeAll(() => {
+beforeAll(async () => {
+  // tick() fires every due schedule in the database, not just this file's, and
+  // the package-wide reset runs once before all files. Without a reset here, a
+  // due schedule left by whichever file ran first is counted as well.
+  await resetTestDatabase();
   handle = createDatabase(getTestDatabaseUrl(), { max: 3 });
 });
 afterAll(async () => {
