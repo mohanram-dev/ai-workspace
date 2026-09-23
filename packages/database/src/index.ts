@@ -17,5 +17,6 @@ export * from "./repositories/projects";
 export * from "./repositories/schedules";
 export * from "./repositories/screenshots";
 export * from "./repositories/tasks";
+export * from "./repositories/templates";
 export * from "./repositories/tool-calls";
 export * as schema from "./schema";

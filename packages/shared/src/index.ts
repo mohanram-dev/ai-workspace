@@ -10,5 +10,6 @@ export * from "./projects";
 export * from "./schedules";
 export * from "./sse";
 export * from "./tasks";
+export * from "./templates";
 export * from "./text";
 export * from "./tools";

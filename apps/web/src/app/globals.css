@@ -152,6 +152,14 @@
     scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
   }
 
+  /* A strip that scrolls sideways by touch or trackpad without showing a bar. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Rendered assistant Markdown. */
   .markdown {
     @apply text-[0.9375rem] leading-7 break-words;

@@ -134,6 +134,13 @@
       "when": 1790131926684,
       "tag": "0018_schedule_conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790132672562,
+      "tag": "0019_prompt_templates",
+      "breakpoints": true
     }
   ]
 }

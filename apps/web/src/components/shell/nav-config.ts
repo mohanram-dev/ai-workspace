@@ -1,5 +1,6 @@
 import {
   ActivityIcon,
+  BookmarkIcon,
   BotIcon,
   CalendarClockIcon,
   FolderKanbanIcon,
@@ -44,6 +45,7 @@ export const PRIMARY_NAV: NavItem[] = [
  */
 export const MORE_NAV: NavItem[] = [
   { href: "/schedules", label: "Schedules", icon: CalendarClockIcon },
+  { href: "/templates", label: "Templates", icon: BookmarkIcon },
   { href: "/files", label: "Files", icon: FolderOpenIcon },
   { href: "/mcp", label: "MCP Tools", icon: PlugIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },

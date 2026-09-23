@@ -124,7 +124,7 @@ data/workspaces/          per-user agent workspaces on local disk (gitignored)
 | `packages/shared/src/events.ts` | `TASK_EVENT_TYPES` + `TaskEventDataMap`. Adding an event type also requires an icon in `activity-timeline.tsx` and, if it is a tool activity, a description in `runtime.ts`. |
 | `packages/shared/src/agents.ts` | Agent config schema/DTO, `NEVER_AUTONOMOUS`. |
 | `packages/shared/src/schedules.ts` | Schedule schemas. `isValidTimeZone` uses `Intl` itself, **not** `Intl.supportedValuesOf("timeZone")` — that list holds `Asia/Calcutta` but not `Asia/Kolkata`, so it would reject the name most people type. |
-| `packages/database/src/schema/*.ts` | 22 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
+| `packages/database/src/schema/*.ts` | 23 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
 | `packages/database/src/testing.ts` | Resets the test DB; refuses any DB whose name does not end in `_test`. |
 | `apps/web/src/server/http.ts` | `HttpError`, `errorResponse`, `assertSameOrigin`, `readJson(schema)`, `isUuid`. Use these in every route. |
 | `apps/web/src/server/session.ts` | `requireApiSession` (routes) / `requirePageSession` (pages). |
@@ -148,6 +148,7 @@ All under `(workspace)` require a session (page-level `requirePageSession`; the 
 | `/agents`, `/agents/new`, `/agents/[agentId]` | Agent list and editor (tools, permissions, limits, autonomous mode) |
 | `/projects`, `/projects/[projectId]` | Projects with files, memory, tasks, schedules |
 | `/tasks`, `/tasks/[taskId]` | History; task page with tabs Overview · Activity · Tools · Browser · Computer · Team · Terminal · Files · Logs (shown only when relevant) |
+| `/templates` | Saved prompts (`prompt_template`), in `MORE_NAV`. The composer's bookmark (`features/templates/template-picker.tsx`) lists and saves them; `{{name}}` blanks are filled through `fillTemplate` in `@aiw/shared`, used by server and browser alike. `/?template=<id>` applies one on the new-task page, then drops the parameter |
 | `/schedules` | Created from the form **or from a chat message** — `schedule.create` is DESTRUCTIVE, so the agent's proposal waits for your approval. Cron/daily/weekly/monthly/interval/once + run history. Every run of a schedule goes to **one conversation** (`schedule.conversation_id`, named after the schedule) through `startScheduleTask` in `@aiw/scheduler`, shared by the ticker and Run now; runs are created with `includeHistory: false` so they stay independent, and a busy conversation makes the run `skipped`. A run records its **outcome** (`completed` / `errored` / `cancelled`), written back by `recordScheduleOutcome` in the composition root's `onTaskEnd` — `@aiw/agents` knows nothing about schedules |
 | `/files` | Workspace browser: upload, preview, search, create, download, delete. Previews text, images, PDF, audio and video |
 | `/mcp`, `/mcp/new`, `/mcp/[serverId]` | MCP servers, tool discovery, per-tool permissions |
@@ -195,14 +196,14 @@ export async function POST(request: Request) {
 
 PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per area; all tables are exported from `schema/index.ts` and re-exported as `schema` from `@aiw/database`.
 
-**Tables (22):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log`.
+**Tables (23):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log` · `prompt_template`.
 
 **Conventions**
 - UUID primary keys (`defaultRandom`), `created_at`/`updated_at` timestamptz, `onDelete` cascades from `user`.
 - Access goes through **repositories** (`src/repositories/*.ts`): `getXForUser(db, userId, id)` is the ownership check; never query a user's rows without the userId filter.
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 19 migrations exist, `0000_init` → `0018_schedule_conversations`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 20 migrations exist, `0000_init` → `0019_prompt_templates`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---

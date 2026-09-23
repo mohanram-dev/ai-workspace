@@ -257,6 +257,12 @@ Docker and SSH are assigned to the DevOps Agent, GitHub to the Coding and Resear
 - PDF reading uses the PDF's **text layer** (PDF.js via `unpdf`). A scanned PDF has none, and the model is told so instead of being handed an empty or invented transcription; there is no OCR. `files.edit` refuses PDFs, because editing extracted text would overwrite the document.
 - Attachments are stored on the message and shown as chips in the conversation.
 
+### Templates
+
+- Save a prompt you use often, with the agent, project and model it should run with. The **bookmark** in the composer lists your templates (most recently used first) and saves what the composer holds; the **Templates** page (under More) creates, edits, deletes and starts them (`/?template=<id>`).
+- Write `{{name}}` anywhere in a template for a blank: using the template asks for each one, then fills every occurrence. A blank you leave empty stays as written, to finish in the composer. Values are inserted literally.
+- A template may only point at your own agent and project; if that agent or project is deleted, the template forgets it and keeps working.
+
 ### Files page (spec §24)
 
 Upload, view, **search by name** (recursive, skipping hidden and dependency folders, capped so a huge workspace cannot stall the request), **create** a new text file, download and delete. Agents work in the same folders with their file tools.
@@ -494,6 +500,9 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` `POST` | `/api/schedules` | List or create schedules |
 | `GET` `PATCH` `DELETE` | `/api/schedules/:id` | Schedule with its runs, update (recomputes the next run), or delete |
 | `POST` | `/api/schedules/:id/run` | Run it now, without changing the schedule |
+| `GET`, `POST` | `/api/templates` | Saved prompts, most recently used first · save one (`{name, prompt, agentId?, projectId?, model?}`, at most 200) |
+| `PATCH`, `DELETE` | `/api/templates/:id` | Edit or delete a template |
+| `POST` | `/api/templates/:id/use` | Record a use, which moves it to the top of the menu |
 | `PATCH` `DELETE` | `/api/memory/:id` | Edit or forget one |
 | `POST` | `/api/approvals/:id/approve` | `{scope: "once" | "task"}` |
 | `POST` | `/api/approvals/:id/reject` | `{reason?}` |
