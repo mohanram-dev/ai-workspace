@@ -163,6 +163,34 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   TERMINAL_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(600).default(60),
+  // Code sandbox: sandbox.run executes the agent's commands in a throwaway
+  // Docker container per task, holding only that task's workspace. Needs a
+  // Docker daemon the server can reach, so it is off until switched on.
+  SANDBOX_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Image each task's container starts from. The default carries Node.js, Python 3, git and build tools. */
+  SANDBOX_IMAGE: z
+    .string()
+    .regex(/^[\w.\-/:@]+$/, "SANDBOX_IMAGE must be an image reference such as node:22-bookworm")
+    .default("node:22-bookworm"),
+  /** "none" (default) keeps commands off the network; "bridge" lets them install packages. */
+  SANDBOX_NETWORK: z.enum(["none", "bridge"]).default("none"),
+  SANDBOX_MEMORY: z
+    .string()
+    .regex(/^\d+[kmg]?$/i, "SANDBOX_MEMORY is a docker size such as 1g or 512m")
+    .default("1g"),
+  SANDBOX_CPUS: z
+    .string()
+    .regex(/^\d+(\.\d+)?$/, "SANDBOX_CPUS is a number such as 1 or 0.5")
+    .default("1"),
+  SANDBOX_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(1800).default(120),
+  /**
+   * WORKSPACE_ROOT as the Docker daemon sees it, when the app itself runs in a
+   * container that talks to the host's daemon (the bind mount is resolved on the host).
+   */
+  SANDBOX_HOST_WORKSPACE_ROOT: optionalString,
   WEB_SEARCH_PROVIDER: z.enum(["gemini", "searxng", "none"]).default("gemini"),
   /** Gemini model for grounded search (grounding availability differs by model and plan). */
   WEB_SEARCH_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),

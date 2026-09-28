@@ -43,7 +43,7 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     temperature: 0.2,
     planningMode: "auto",
     maxSteps: 5,
-    tools: ["files.list","files.read","files.search","files.write","files.edit","files.delete","git.status","git.diff","git.log","git.init","git.add","git.commit","terminal.run","github.search_repositories","github.list_issues","github.read_issue"],
+    tools: ["files.list","files.read","files.search","files.write","files.edit","files.delete","git.status","git.diff","git.log","git.init","git.add","git.commit","terminal.run","sandbox.run","github.search_repositories","github.list_issues","github.read_issue"],
     permissions: ["WRITE","EXECUTE","NETWORK"],
   },
   {

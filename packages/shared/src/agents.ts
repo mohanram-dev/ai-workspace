@@ -67,6 +67,9 @@ export type AgentConfig = z.infer<typeof agentConfigSchema>;
  */
 export const NEVER_AUTONOMOUS: readonly string[] = ["terminal.run", "ssh.run"];
 
+/** Tools whose calls are shell commands, shown in the task page's Terminal tab. */
+export const TERMINAL_TOOL_NAMES: readonly string[] = ["terminal.run", "sandbox.run"];
+
 export const createAgentSchema = agentConfigSchema;
 
 export const updateAgentSchema = agentConfigSchema

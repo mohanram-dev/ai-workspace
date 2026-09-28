@@ -7,6 +7,7 @@ import { createMemoryTools } from "@aiw/agents";
 import { createScheduleTools } from "@aiw/scheduler";
 import { getBrowserTools } from "./browser";
 import { getComputerTools } from "./computer";
+import { getSandboxManager } from "./sandbox";
 import { getServerEnv, type ServerEnv } from "./env";
 import { getProviderRegistry } from "./providers";
 
@@ -74,6 +75,7 @@ export function getToolRegistry(): ToolRegistry {
     });
     for (const tool of getBrowserTools()) globalForTools.__aiwTools.register(tool);
     for (const tool of getComputerTools()) globalForTools.__aiwTools.register(tool);
+    globalForTools.__aiwTools.register(getSandboxManager().tool);
     for (const tool of createMemoryTools(getDatabase())) globalForTools.__aiwTools.register(tool);
     for (const tool of createScheduleTools({ db: getDatabase() })) globalForTools.__aiwTools.register(tool);
   }

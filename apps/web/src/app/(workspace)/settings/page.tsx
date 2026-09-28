@@ -113,6 +113,16 @@ export default async function SettingsPage() {
               <Badge variant="outline">Disabled (TERMINAL_ENABLED=false)</Badge>
             )}
           </Row>
+          <Row label="Code sandbox">
+            {env.SANDBOX_ENABLED ? (
+              <span className="text-xs">
+                <span className="font-mono">{env.SANDBOX_IMAGE}</span> · network {env.SANDBOX_NETWORK === "none" ? "off" : "on"} · {env.SANDBOX_MEMORY} ·{" "}
+                {env.SANDBOX_CPUS} CPU · one container per task
+              </span>
+            ) : (
+              <Badge variant="outline">Disabled (SANDBOX_ENABLED=false)</Badge>
+            )}
+          </Row>
           <Row label="Web search">
             {getToolRegistry().availability("web.search").available ? (
               <span className="text-xs">

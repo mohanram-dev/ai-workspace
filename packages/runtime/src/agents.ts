@@ -15,6 +15,7 @@ import { getServerEnv } from "./env";
 import { getProviderRegistry } from "./providers";
 import { getMcpServices } from "./mcp";
 import { getQueueRuntime } from "./queue";
+import { getSandboxManager } from "./sandbox";
 import { getToolRegistry, getWorkspaceRoot } from "./tools";
 
 export interface AgentServices {
@@ -66,6 +67,7 @@ export function getAgentServices(): AgentServices {
         await Promise.all([
           getBrowserManager().close(taskId),
           getComputerManager().close(taskId),
+          getSandboxManager().close(taskId),
           // A scheduled task's run row says "started" until its outcome is
           // written here. @aiw/agents knows nothing about schedules, so the
           // composition root joins the two; a task with no schedule run

@@ -8,3 +8,4 @@ export { getAgentServices, type AgentServices } from "./agents";
 export { getQueueRuntime, type QueueRuntime } from "./queue";
 export { publishFrame, readPublishedFrame } from "./frames";
 export { getScheduler } from "./scheduler";
+export { getSandboxManager } from "./sandbox";

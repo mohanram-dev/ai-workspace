@@ -1,6 +1,6 @@
 "use client";
 
-import { isActiveTaskStatus, type TaskEventOf, type TaskWithStepsDto } from "@aiw/shared";
+import { isActiveTaskStatus, TERMINAL_TOOL_NAMES, type TaskEventOf, type TaskWithStepsDto } from "@aiw/shared";
 import { ArrowLeftIcon, BrainCircuitIcon, DownloadIcon, MessagesSquareIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,7 +38,7 @@ export function TaskDetail({ initial }: { initial: TaskWithStepsDto }) {
     if (result && action === "retry") router.push(`/tasks/${result.id}`);
   }
 
-  const terminalCalls = task.toolCalls.filter((c) => c.toolName === "terminal.run");
+  const terminalCalls = task.toolCalls.filter((c) => TERMINAL_TOOL_NAMES.includes(c.toolName));
   const fileEvents = live.events.filter(isFileEvent);
   const usesBrowser = task.screenshots.some((s) => s.source === "browser") || task.toolCalls.some((c) => c.toolName.startsWith("browser.")) || live.events.some(isBrowserEvent);
   const usesComputer = task.screenshots.some((s) => s.source === "computer") || task.toolCalls.some((c) => c.toolName.startsWith("computer.")) || live.events.some(isComputerEvent);
