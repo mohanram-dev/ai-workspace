@@ -9,6 +9,7 @@ export * from "./mcp";
 export * from "./observability";
 export * from "./projects";
 export * from "./schedules";
+export * from "./search";
 export * from "./templates";
 export * from "./screenshots";
 export * from "./tools";

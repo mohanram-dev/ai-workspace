@@ -126,3 +126,21 @@ export const filePathQuerySchema = z.object({
   path: z.string().max(1024).default("."),
   projectId: z.uuid().nullish(),
 });
+
+/** A passage found by searching file contents by meaning (files.semantic_search). */
+export interface SemanticSearchHitDto {
+  path: string;
+  startLine: number;
+  endLine: number;
+  /** Cosine similarity, 0–1: higher is closer. */
+  score: number;
+  snippet: string;
+}
+
+export interface SemanticSearchResultDto {
+  query: string;
+  hits: SemanticSearchHitDto[];
+  indexedFiles: number;
+  /** Files not embedded yet; searching again continues the index. */
+  pendingFiles: number;
+}

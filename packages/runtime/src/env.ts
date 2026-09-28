@@ -191,6 +191,13 @@ const envSchema = z.object({
    * container that talks to the host's daemon (the bind mount is resolved on the host).
    */
   SANDBOX_HOST_WORKSPACE_ROOT: optionalString,
+  /**
+   * Provider that embeds workspace files for files.semantic_search. The file
+   * text is sent to it, as it is to the chat model when an agent reads a file.
+   */
+  EMBEDDING_PROVIDER: z.enum(["gemini", "openai-compatible", "openrouter", "none"]).default("gemini"),
+  /** Changing it re-embeds each file on its next search. */
+  EMBEDDING_MODEL: z.string().min(1).default("gemini-embedding-001"),
   WEB_SEARCH_PROVIDER: z.enum(["gemini", "searxng", "none"]).default("gemini"),
   /** Gemini model for grounded search (grounding availability differs by model and plan). */
   WEB_SEARCH_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),

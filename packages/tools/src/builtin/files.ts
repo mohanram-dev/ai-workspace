@@ -17,7 +17,8 @@ function isBinary(buffer: Buffer): boolean {
   return buffer.subarray(0, 8000).includes(0);
 }
 
-async function walk(
+/** Breadth-first walk of a workspace: sorted, no symlinks, never outside it, dependency and build folders skipped. */
+export async function walkWorkspace(
   workspace: Workspace,
   start: string,
   options: { maxDepth: number; limit: number },
@@ -97,7 +98,7 @@ const listTool = {
     const dir = await context.workspace.resolve(input.path, { mustExist: true });
     if (!(await stat(dir)).isDirectory()) throw new ToolError("invalid_input", "That path is a file, not a directory.");
     const entries: { path: string; type: "file" | "directory"; size: number | null }[] = [];
-    const truncated = await walk(context.workspace, dir, { maxDepth: input.recursive ? input.maxDepth : 1, limit: 500 }, async (absolute, type) => {
+    const truncated = await walkWorkspace(context.workspace, dir, { maxDepth: input.recursive ? input.maxDepth : 1, limit: 500 }, async (absolute, type) => {
       entries.push({ path: context.workspace.relative(absolute), type, size: type === "file" ? (await stat(absolute)).size : null });
     });
     const lines = entries.map((e) => (e.type === "directory" ? `${e.path}/` : `${e.path} (${e.size} bytes)`));
@@ -224,7 +225,7 @@ const searchTool = {
     const needle = input.caseSensitive ? input.query : input.query.toLowerCase();
     const matches: { path: string; line: number; text: string }[] = [];
     let filesScanned = 0;
-    await walk(context.workspace, start, { maxDepth: 12, limit: 5000 }, async (absolute, type) => {
+    await walkWorkspace(context.workspace, start, { maxDepth: 12, limit: 5000 }, async (absolute, type) => {
       if (context.signal.aborted) return false;
       if (type !== "file") return;
       const info = await stat(absolute);

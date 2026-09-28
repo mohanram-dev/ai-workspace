@@ -1,7 +1,7 @@
 "use client";
 
-import type { FileContentDto, FileEntryDto, FileListDto } from "@aiw/shared";
-import { ChevronRightIcon, DownloadIcon, FileIcon, FilePlusIcon, FolderIcon, Loader2Icon, RefreshCwIcon, SearchIcon, Trash2Icon, UploadIcon, XIcon } from "lucide-react";
+import type { FileContentDto, FileEntryDto, FileListDto, SemanticSearchResultDto } from "@aiw/shared";
+import { ChevronRightIcon, DownloadIcon, FileIcon, FilePlusIcon, FolderIcon, Loader2Icon, RefreshCwIcon, SearchIcon, SparklesIcon, Trash2Icon, UploadIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<{ query: string; entries: FileEntryDto[]; truncated: boolean } | null>(null);
+  const [meaning, setMeaning] = useState<SemanticSearchResultDto | null>(null);
+  const [searchingMeaning, setSearchingMeaning] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -54,8 +56,10 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
 
   useEffect(() => {
     const term = search.trim();
+    // A new term makes the last search-by-meaning stale.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMeaning(null);
     if (!term) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults(null);
       return;
     }
@@ -70,6 +74,20 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
       clearTimeout(timer);
     };
   }, [search, query]);
+
+  /** Searches file contents by meaning. Asked for explicitly: it may embed files that changed, which calls the model provider. */
+  async function searchByMeaning() {
+    const term = search.trim();
+    if (!term) return;
+    setSearchingMeaning(true);
+    try {
+      setMeaning(await apiFetch<SemanticSearchResultDto>(`/api/files/semantic-search?query=${encodeURIComponent(term)}${query}`));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSearchingMeaning(false);
+    }
+  }
 
   async function create() {
     const name = newName.trim();
@@ -162,6 +180,11 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
             </button>
           )}
         </div>
+        {search.trim() && (
+          <Button variant="outline" size="sm" disabled={searchingMeaning} onClick={() => void searchByMeaning()}>
+            {searchingMeaning ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />} Search inside files
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => void load(path)}>
           <RefreshCwIcon /> Refresh
         </Button>
@@ -200,6 +223,36 @@ export function FileBrowser({ projectId = null, compact = false }: FileBrowserPr
             Cancel
           </Button>
         </form>
+      )}
+
+      {meaning && (
+        <div className="grid gap-1.5">
+          <p className="text-xs text-muted-foreground">
+            Inside files, by meaning: {meaning.hits.length} passage(s) from {meaning.indexedFiles} indexed file(s)
+            {meaning.pendingFiles > 0 ? ` — ${meaning.pendingFiles} file(s) not indexed yet; search again to continue` : ""}
+          </p>
+          {meaning.hits.length > 0 && (
+            <ul className={cn("grid grid-cols-1 divide-y rounded-lg border", compact && "max-h-72 overflow-y-auto")}>
+              {meaning.hits.map((hit) => (
+                <li key={`${hit.path}:${hit.startLine}`}>
+                  <button
+                    type="button"
+                    className="grid w-full min-w-0 gap-1 px-3 py-2 text-left hover:bg-muted/50"
+                    onClick={() => void open({ name: hit.path.split("/").at(-1) ?? hit.path, path: hit.path, kind: "file", size: 0, modifiedAt: "" })}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                        {hit.path}:{hit.startLine}-{hit.endLine}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{hit.score.toFixed(2)}</span>
+                    </span>
+                    <span className="line-clamp-2 text-xs text-muted-foreground">{hit.snippet}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {results ? (

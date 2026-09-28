@@ -124,7 +124,7 @@ data/workspaces/          per-user agent workspaces on local disk (gitignored)
 | `packages/shared/src/events.ts` | `TASK_EVENT_TYPES` + `TaskEventDataMap`. Adding an event type also requires an icon in `activity-timeline.tsx` and, if it is a tool activity, a description in `runtime.ts`. |
 | `packages/shared/src/agents.ts` | Agent config schema/DTO, `NEVER_AUTONOMOUS`. |
 | `packages/shared/src/schedules.ts` | Schedule schemas. `isValidTimeZone` uses `Intl` itself, **not** `Intl.supportedValuesOf("timeZone")` — that list holds `Asia/Calcutta` but not `Asia/Kolkata`, so it would reject the name most people type. |
-| `packages/database/src/schema/*.ts` | 25 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
+| `packages/database/src/schema/*.ts` | 26 tables. Change → `pnpm db:generate` → rename the migration → `pnpm db:migrate`. |
 | `packages/database/src/testing.ts` | Resets the test DB; refuses any DB whose name does not end in `_test`. |
 | `apps/web/src/server/http.ts` | `HttpError`, `errorResponse`, `assertSameOrigin`, `readJson(schema)`, `isUuid`. Use these in every route. |
 | `apps/web/src/server/session.ts` | `requireApiSession` (routes) / `requirePageSession` (pages). |
@@ -198,7 +198,7 @@ export async function POST(request: Request) {
 
 PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per area; all tables are exported from `schema/index.ts` and re-exported as `schema` from `@aiw/database`.
 
-**Tables (25):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log` · `prompt_template` · `api_token webhook`.
+**Tables (26):** `user session account verification` · `agent task task_step` · `task_event` · `tool_call` · `approval_request` · `conversation message` · `project project_member` · `memory` · `mcp_server mcp_tool` · `schedule schedule_run` · `screenshot` · `usage_log audit_log` · `prompt_template` · `api_token webhook` · `file_chunk`.
 
 **Conventions**
 - UUID primary keys (`defaultRandom`), `created_at`/`updated_at` timestamptz, `onDelete` cascades from `user`.
@@ -206,7 +206,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
 - Never put a `Date` inside a raw `sql` fragment in a query: postgres-js receives it unencoded and throws (`The "string" argument must be … Received an instance of Date`). Use the typed operators (`lt`, `gte`, …), which encode it through the column. Caught by a test in `integrations.test.ts`.
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 22 migrations exist, `0000_init` → `0021_coding_agent_sandbox`. Data migrations (0013, 0015, 0016, 0021) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 24 migrations exist, `0000_init` → `0023_semantic_search_tool`. Data migrations (0013, 0015, 0016, 0021, 0023) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---
@@ -313,6 +313,7 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
 | Code sandbox | `SANDBOX_ENABLED` (false), `SANDBOX_IMAGE` (`node:22-bookworm`), `SANDBOX_NETWORK` (`none`), `SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_TIMEOUT_SECONDS`, `SANDBOX_HOST_WORKSPACE_ROOT` |
 | Web | `WEB_SEARCH_PROVIDER` (gemini/searxng/none), `WEB_SEARCH_MODEL`, `SEARXNG_URL`, `WEB_FETCH_ALLOW_PRIVATE_NETWORK` |
+| Smart search | `EMBEDDING_PROVIDER` (`gemini` | `openai-compatible` | `openrouter` | `none`), `EMBEDDING_MODEL` (`gemini-embedding-001`) |
 | Infra tools | `DOCKER_TOOLS_ENABLED`, `DOCKER_TIMEOUT_SECONDS`, `SSH_TOOLS_ENABLED`, `SSH_HOSTS`, `SSH_TIMEOUT_SECONDS`, `GITHUB_TOKEN`, `GITHUB_API_URL` |
 | MCP | `MCP_STDIO_ENABLED` (false, admins only), `MCP_ALLOW_PRIVATE_NETWORK` |
 | Browser | `BROWSER_ENABLED`, `BROWSER_CHANNEL`, `BROWSER_EXECUTABLE_PATH`, `BROWSER_MAX_SESSIONS`, `BROWSER_ALLOW_PRIVATE_NETWORK` |
@@ -417,6 +418,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 - Providers: **Gemini**, **OpenAI-compatible** and **OpenRouter**. The Anthropic native API is not implemented natively; reach Claude models through OpenRouter or another gateway. A gateway's `/models` may list hundreds of entries (OpenRouter: 400+), so set `OPENAI_MODELS` / `OPENROUTER_MODELS` to keep the picker usable.
 - **S3** storage is not implemented (owner's decision: local disk under `WORKSPACE_ROOT`).
 - PDFs are read from their **text layer** only: no OCR, so a scanned PDF is reported as having no text. Detection is by the `%PDF-` header, not the file name; check for it **before** any "has a zero byte" binary probe, because many PDFs have no zero byte in their first kilobytes and would pass as text. `files.read` is the only file tool that understands PDFs — `files.edit` must keep refusing them.
+- Smart search (`packages/agents/src/search-tools.ts`) keeps vectors as float32 `bytea` and ranks in the server: fine for a personal workspace (≤ 8,000 chunks), not for a large shared corpus — that would need pgvector, which means a different Postgres image in dev, test and prod. Indexing is lazy (on search) and bounded per call; a file that does not fit the remaining budget waits whole rather than being stored half-indexed.
 - Voice input: not built (spec says "later").
 - MCP: OAuth sign-in, prompts and resources are NOT IMPLEMENTED (tools only).
 - Browser: no persistent logins across tasks, no file download/upload through the page, follows the newest tab only.

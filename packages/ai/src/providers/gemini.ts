@@ -4,6 +4,8 @@ import {
   FunctionCallingConfigMode,
   GoogleGenAI,
   type Content,
+  type EmbedContentParameters,
+  type EmbedContentResponse,
   type GenerateContentParameters,
   type GenerateContentResponse,
   type Model,
@@ -15,6 +17,7 @@ import type {
   ChatMessage,
   ChatRequest,
   ChatStreamChunk,
+  EmbedRequest,
   FinishReason,
   GroundedSearchResult,
   ModelInfo,
@@ -36,8 +39,14 @@ export interface GeminiClient {
       params: GenerateContentParameters,
     ): Promise<AsyncGenerator<GenerateContentResponse>>;
     list(): Promise<AsyncIterable<Model>>;
+    embedContent?(params: EmbedContentParameters): Promise<EmbedContentResponse>;
   };
 }
+
+/** Texts per embedContent call; the API accepts up to 100. */
+const EMBED_BATCH = 100;
+/** Dimensions kept from gemini-embedding-001 (Matryoshka-trained, so a prefix stays meaningful): a quarter of the storage. */
+const EMBED_DIMENSIONS = 768;
 
 export interface GeminiProviderOptions {
   apiKey: string | undefined;
@@ -210,6 +219,35 @@ export class GeminiProvider implements ModelProvider {
    * Answers a query using Gemini's Google Search grounding and returns the
    * cited web sources. Availability depends on the API key's plan and quota.
    */
+  async embed(request: EmbedRequest): Promise<number[][]> {
+    const client = this.getClient();
+    if (!client.models.embedContent) throw new ProviderError("invalid_request", "This Gemini client cannot embed text.", { provider: PROVIDER_ID });
+    const vectors: number[][] = [];
+    for (let start = 0; start < request.texts.length; start += EMBED_BATCH) {
+      const batch = request.texts.slice(start, start + EMBED_BATCH);
+      let response: EmbedContentResponse;
+      try {
+        response = await client.models.embedContent({
+          model: request.model,
+          contents: batch,
+          config: {
+            taskType: request.purpose === "query" ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT",
+            outputDimensionality: EMBED_DIMENSIONS,
+            ...(request.signal ? { abortSignal: request.signal } : {}),
+          },
+        });
+      } catch (error) {
+        throw toProviderError(error, request.signal);
+      }
+      const embeddings = response.embeddings ?? [];
+      if (embeddings.length !== batch.length) {
+        throw new ProviderError("unavailable", `Gemini returned ${embeddings.length} embeddings for ${batch.length} texts.`, { provider: PROVIDER_ID });
+      }
+      for (const embedding of embeddings) vectors.push(embedding.values ?? []);
+    }
+    return vectors;
+  }
+
   async groundedSearch(query: string, options: { model?: string; signal?: AbortSignal } = {}): Promise<GroundedSearchResult> {
     const client = this.getClient();
     const model = options.model ?? this.defaultModel;
