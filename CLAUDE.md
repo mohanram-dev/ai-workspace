@@ -14,7 +14,7 @@ The product intent, verbatim from the original specification: *"I assigned work 
 1. **No fake functionality.** Never simulate browser results, MCP responses, terminal output or agent execution. If something is not built, label it `NOT IMPLEMENTED` — and remove that label the moment it *is* built.
 2. **Never expose API keys to the browser. Never allow arbitrary destructive commands without permission.**
 
-**Status:** all 12 build phases complete and verified (2026-09-13/14). 252 tests across 12 packages. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-workspace (branch `main`).
+**Status:** all 12 build phases complete and verified (2026-09-13/14), then extended 2026-09-23/28 (PDF reading, task attachments, per-schedule conversations, templates, export, API tokens and webhooks, code sandbox, semantic file search). 407 tests across 12 packages. `pnpm check` exits 0. Source: https://github.com/mohanram-dev/ai-workspace (branch `main`).
 
 ---
 
@@ -432,7 +432,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 23. Current status & remaining TODOs
 
-**Status:** feature-complete against the spec, verified live (real Gemini, real Docker, real GitHub, headless-browser UI passes), `pnpm check` green with 252 tests across 12 packages.
+**Status:** feature-complete against the spec, verified live (real Gemini, real Docker, real GitHub, headless-browser UI passes), `pnpm check` green with 407 tests across 12 packages.
 
 **TODOs, in priority order**
 1. **Rotate the Gemini API key** in `.env` — it has been exposed in chat sessions during development.
