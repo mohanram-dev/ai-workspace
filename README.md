@@ -239,6 +239,13 @@ Next.js route handlers ── Better Auth (sessions, rate limits)
 - Every unattended action is recorded as an `AUTONOMOUS_ACTION` timeline event and an `agent.autonomous_action` audit-log row, so you can see afterwards exactly what ran without asking.
 - Off for every agent by default.
 
+### Smart search over files
+
+- `files.semantic_search` (Coding, Research and File agents) and **Search inside files** on the Files page find passages by **meaning** — "where do we handle refunds?" finds `billing/refunds.md` without the exact words. `files.search` still does exact text.
+- Text files and PDFs (their text layer) are split into ~40-line chunks, embedded with `EMBEDDING_MODEL` (default `gemini-embedding-001`, 768 dimensions) and stored in Postgres (`file_chunk`) as raw float32 — no pgvector extension, so the stock image keeps working. A file is re-embedded only when its size, mtime or the model changes; deleted files are dropped.
+- Indexing is **incremental and bounded**: at most 600 new chunks per search, so a big workspace is indexed over a few searches, and the result says how many files are still waiting. Limits: 2,000 files and 8,000 chunks per workspace, 1 MB per text file.
+- File text is sent to the embedding provider, as it is to the chat model when an agent reads a file. `EMBEDDING_PROVIDER=none` switches it off.
+
 ### Code sandbox
 
 - `sandbox.run` runs the Coding Agent's shell commands (`npm test`, `python3 script.py`, …) in a **throwaway Docker container per task**: the task's workspace is mounted at `/workspace`, so file tools and commands see the same files; there is **no network** unless `SANDBOX_NETWORK=bridge`; memory, CPU and process count are capped; all Linux capabilities are dropped, `no-new-privileges` is set, the root file system is read-only (a 1 GB `/tmp` is writable) and the user is not root. The first command starts the container (pulling the image if needed), later ones reuse it, and it is removed when the task ends; its main process is a `sleep` longer than any task may run, so a container a crash left behind stops and removes itself.
@@ -443,6 +450,8 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `SANDBOX_TIMEOUT_SECONDS` | no | `120` | Ceiling for one command |
 | `SANDBOX_HOST_WORKSPACE_ROOT` | no | — | `WORKSPACE_ROOT` as the Docker host sees it, when the app runs in a container using the host's daemon |
 | `WEB_SEARCH_PROVIDER` | no | `gemini` | `gemini` (Google Search grounding), `searxng`, or `none` |
+| `EMBEDDING_PROVIDER` | no | `gemini` | Embeds workspace files for smart search: `gemini`, `openai-compatible`, `openrouter` or `none` |
+| `EMBEDDING_MODEL` | no | `gemini-embedding-001` | Embedding model; changing it re-embeds each file on its next search |
 | `WEB_SEARCH_MODEL` | no | `gemini-2.5-flash-lite` | Model used for grounded search (needs grounding quota on your key) |
 | `SEARXNG_URL` | for searxng | — | SearXNG base URL (JSON format enabled) |
 | `WEB_FETCH_ALLOW_PRIVATE_NETWORK` | no | `false` | Allow `web.fetch` to reach private/loopback addresses |
@@ -505,6 +514,7 @@ The live Gemini smoke test (`packages/ai/test/gemini.test.ts`) runs only when `G
 | `GET` | `/api/activity` | Dashboard aggregates for a time range |
 | `GET` | `/api/activity/export?kind=tasks|usage&range=` | One row per task, or per model call, as CSV (at most 20,000 rows) |
 | `GET` | `/api/files/search` | Files whose name contains a query, anywhere in the workspace |
+| `GET` | `/api/files/semantic-search?query=&projectId=` | Passages inside files matching the query by meaning; may embed changed files first |
 | `POST` | `/api/files/create` | A new empty text file; never overwrites |
 | `GET` | `/api/executions` | Execution history: every task run with its origin (user, delegated, retry) |
 | `GET` | `/api/activity/events` | SSE feed of every event across your tasks |

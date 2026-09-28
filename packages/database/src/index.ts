@@ -16,6 +16,7 @@ export * from "./repositories/memory";
 export * from "./repositories/observability";
 export * from "./repositories/projects";
 export * from "./repositories/schedules";
+export * from "./repositories/search";
 export * from "./repositories/screenshots";
 export * from "./repositories/tasks";
 export * from "./repositories/templates";

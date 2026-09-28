@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   ChatRequest,
   ChatStreamChunk,
+  EmbedRequest,
   FinishReason,
   ModelInfo,
   ModelPrice,
@@ -161,6 +162,23 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
     this.modelCache = { models: result, expiresAt: Date.now() + MODEL_CACHE_TTL_MS };
     return result;
+  }
+
+  /** The OpenAI /embeddings endpoint, in batches; vectors come back in the order of the texts. */
+  async embed(request: EmbedRequest): Promise<number[][]> {
+    const vectors: number[][] = [];
+    for (let start = 0; start < request.texts.length; start += 100) {
+      const input = request.texts.slice(start, start + 100);
+      const body = (await this.request("/embeddings", { method: "POST", body: { model: request.model, input }, signal: request.signal })) as {
+        data?: { index?: number; embedding?: number[] }[];
+      };
+      const data = [...(body.data ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      if (data.length !== input.length) {
+        throw new ProviderError("unavailable", `${this.name} returned ${data.length} embeddings for ${input.length} texts.`, { provider: this.id });
+      }
+      for (const item of data) vectors.push(item.embedding ?? []);
+    }
+    return vectors;
   }
 
   async *streamChat(request: ChatRequest): AsyncGenerator<ChatStreamChunk> {

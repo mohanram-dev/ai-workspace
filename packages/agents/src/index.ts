@@ -16,6 +16,7 @@ export { createTaskEventStream, type TaskEventStreamOptions } from "./stream";
 export { routeTask, type ModelCall, type RoutingDecision } from "./router";
 export { ApprovalService, type ApprovalDecision } from "./approvals";
 export { buildMemoryNotice, createMemoryTools, MEMORY_TOOL_NAMES, projectWorkspace, type MemoryContext } from "./memory-tools";
+export { chunkText, createSearchTools, semanticSearch, SEARCH_TOOL_NAMES, type SearchHit, type SearchOutcome, type SemanticSearchConfig } from "./search-tools";
 export { AgentRuntime, type AgentRuntimeOptions } from "./runtime";
 export { assertConversationIdle, TaskService, type CreatedTask, type TaskServiceOptions } from "./service";
 export {

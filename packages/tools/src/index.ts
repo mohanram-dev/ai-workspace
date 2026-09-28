@@ -8,6 +8,7 @@ import { createWebTools, type WebToolsConfig } from "./builtin/web";
 import { ToolRegistry } from "./registry";
 
 export { classifyCommand, type TerminalConfig } from "./builtin/terminal";
+export { walkWorkspace } from "./builtin/files";
 export { classifyShellCommand, SandboxManager, sandboxContainerName, type SandboxConfig } from "./builtin/sandbox";
 export type { DockerConfig } from "./builtin/docker";
 export type { GitHubConfig } from "./builtin/github";

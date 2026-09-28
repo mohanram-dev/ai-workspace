@@ -43,7 +43,7 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     temperature: 0.2,
     planningMode: "auto",
     maxSteps: 5,
-    tools: ["files.list","files.read","files.search","files.write","files.edit","files.delete","git.status","git.diff","git.log","git.init","git.add","git.commit","terminal.run","sandbox.run","github.search_repositories","github.list_issues","github.read_issue"],
+    tools: ["files.list","files.read","files.search","files.semantic_search","files.write","files.edit","files.delete","git.status","git.diff","git.log","git.init","git.add","git.commit","terminal.run","sandbox.run","github.search_repositories","github.list_issues","github.read_issue"],
     permissions: ["WRITE","EXECUTE","NETWORK"],
   },
   {
@@ -55,7 +55,7 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     temperature: 0.4,
     planningMode: "always",
     maxSteps: 6,
-    tools: ["web.search","web.fetch","files.list","files.read","files.search","files.write","github.search_repositories"],
+    tools: ["web.search","web.fetch","files.list","files.read","files.search","files.semantic_search","files.write","github.search_repositories"],
     permissions: ["NETWORK","WRITE"],
   },
   {
@@ -103,7 +103,7 @@ export const BUILTIN_AGENTS: BuiltinAgentDefinition[] = [
     temperature: 0.3,
     planningMode: "auto",
     maxSteps: 4,
-    tools: ["files.list","files.read","files.search","files.write","files.edit","files.delete"],
+    tools: ["files.list","files.read","files.search","files.semantic_search","files.write","files.edit","files.delete"],
     permissions: ["WRITE"],
   },
   {

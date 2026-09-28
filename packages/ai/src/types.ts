@@ -93,6 +93,16 @@ export interface ModelProvider {
   isConfigured(): boolean;
   listModels(): Promise<ModelInfo[]>;
   streamChat(request: ChatRequest): AsyncIterable<ChatStreamChunk>;
+  /** Text embeddings, for providers that offer them. */
+  embed?(request: EmbedRequest): Promise<number[][]>;
+}
+
+export interface EmbedRequest {
+  model: string;
+  texts: string[];
+  /** Documents are embedded for storage, a query for searching them; some models embed the two differently. */
+  purpose: "document" | "query";
+  signal?: AbortSignal | undefined;
 }
 
 export interface WebSearchSource {
