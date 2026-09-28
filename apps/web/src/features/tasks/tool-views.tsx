@@ -1,6 +1,6 @@
 "use client";
 
-import type { TaskEvent, TaskEventOf, ToolCallDto } from "@aiw/shared";
+import { TERMINAL_TOOL_NAMES, type TaskEvent, type TaskEventOf, type ToolCallDto } from "@aiw/shared";
 import {
   BanIcon,
   CheckIcon,
@@ -109,14 +109,15 @@ interface TerminalOutput {
 }
 
 function commandOf(call: ToolCallDto): string {
-  const input = call.input as { program?: string; args?: string[] } | null;
+  const input = call.input as { program?: string; args?: string[]; command?: string } | null;
+  if (input?.command) return input.command;
   if (!input?.program) return call.toolName;
   return [input.program, ...(input.args ?? []).map((a) => (/\s/.test(a) ? JSON.stringify(a) : a))].join(" ");
 }
 
-/** Live terminal panes for terminal.run calls: command, cwd, streamed output, exit code, duration (spec §8). */
+/** Live terminal panes for terminal.run and sandbox.run calls: command, cwd, streamed output, exit code, duration (spec §8). */
 export function TerminalView({ toolCalls, live }: { toolCalls: ToolCallDto[]; live: TerminalChunks }) {
-  const commands = toolCalls.filter((c) => c.toolName === "terminal.run");
+  const commands = toolCalls.filter((c) => TERMINAL_TOOL_NAMES.includes(c.toolName));
   if (commands.length === 0) return <p className="text-sm text-muted-foreground">No terminal commands.</p>;
   return (
     <div className="grid grid-cols-1 gap-4">

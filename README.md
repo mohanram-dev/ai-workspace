@@ -239,6 +239,12 @@ Next.js route handlers ── Better Auth (sessions, rate limits)
 - Every unattended action is recorded as an `AUTONOMOUS_ACTION` timeline event and an `agent.autonomous_action` audit-log row, so you can see afterwards exactly what ran without asking.
 - Off for every agent by default.
 
+### Code sandbox
+
+- `sandbox.run` runs the Coding Agent's shell commands (`npm test`, `python3 script.py`, …) in a **throwaway Docker container per task**: the task's workspace is mounted at `/workspace`, so file tools and commands see the same files; there is **no network** unless `SANDBOX_NETWORK=bridge`; memory, CPU and process count are capped; all Linux capabilities are dropped, `no-new-privileges` is set, the root file system is read-only (a 1 GB `/tmp` is writable) and the user is not root. The first command starts the container (pulling the image if needed), later ones reuse it, and it is removed when the task ends; its main process is a `sleep` longer than any task may run, so a container a crash left behind stops and removes itself.
+- Output streams live into the task's **Terminal** tab. Each command in a shell line is classified by the terminal's rules, so `rm`, `mv`, `git reset --hard` and the like wait for your approval. That reading is best effort; the container is what bounds the damage to this workspace.
+- Off by default (`SANDBOX_ENABLED`). Unlike `terminal.run`, which runs on the server itself, this is real isolation — but it needs a Docker daemon and the `docker` CLI where tasks run — Docker Desktop on a machine that runs the app directly, as in development. **Not supported in `docker-compose.prod.yml` as shipped:** the worker image has no docker CLI, and giving it the host's Docker socket would be root-equivalent on that host; that setup (plus `SANDBOX_HOST_WORKSPACE_ROOT`) is left to an operator who accepts it.
+
 ### Infrastructure tools (spec §15)
 
 | Tools | What | Switch |
@@ -430,6 +436,12 @@ All variables live in the root `.env`. Real environment variables take precedenc
 | `TERMINAL_ENABLED` | no | `false` | Enable `terminal.run`. Not a sandbox, see Tools |
 | `TERMINAL_ALLOWED_COMMANDS` | no | `ls,cat,echo,pwd,grep,find,wc,head,tail,du,df,git,node,npm,python3` | Programs `terminal.run` may start |
 | `TERMINAL_TIMEOUT_SECONDS` | no | `60` | Default and maximum command time |
+| `SANDBOX_ENABLED` | no | `false` | Code sandbox (`sandbox.run`): one throwaway Docker container per task |
+| `SANDBOX_IMAGE` | no | `node:22-bookworm` | Image the containers start from |
+| `SANDBOX_NETWORK` | no | `none` | `bridge` lets sandboxed commands reach the network |
+| `SANDBOX_MEMORY`, `SANDBOX_CPUS` | no | `1g`, `1` | Per-container limits |
+| `SANDBOX_TIMEOUT_SECONDS` | no | `120` | Ceiling for one command |
+| `SANDBOX_HOST_WORKSPACE_ROOT` | no | — | `WORKSPACE_ROOT` as the Docker host sees it, when the app runs in a container using the host's daemon |
 | `WEB_SEARCH_PROVIDER` | no | `gemini` | `gemini` (Google Search grounding), `searxng`, or `none` |
 | `WEB_SEARCH_MODEL` | no | `gemini-2.5-flash-lite` | Model used for grounded search (needs grounding quota on your key) |
 | `SEARXNG_URL` | for searxng | — | SearXNG base URL (JSON format enabled) |

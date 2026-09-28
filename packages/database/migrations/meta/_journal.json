@@ -148,6 +148,13 @@
       "when": 1790133924627,
       "tag": "0020_api_tokens_and_webhooks",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790133924628,
+      "tag": "0021_coding_agent_sandbox",
+      "breakpoints": true
     }
   ]
 }

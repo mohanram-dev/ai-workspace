@@ -8,6 +8,7 @@ import { createWebTools, type WebToolsConfig } from "./builtin/web";
 import { ToolRegistry } from "./registry";
 
 export { classifyCommand, type TerminalConfig } from "./builtin/terminal";
+export { classifyShellCommand, SandboxManager, sandboxContainerName, type SandboxConfig } from "./builtin/sandbox";
 export type { DockerConfig } from "./builtin/docker";
 export type { GitHubConfig } from "./builtin/github";
 export { createSshTools, parseSshHosts, type SshConfig, type SshHost } from "./builtin/ssh";
@@ -55,6 +56,7 @@ export const BUILTIN_TOOL_NAMES = {
   gitRead: ["git.status", "git.diff", "git.log"],
   gitWrite: ["git.init", "git.add", "git.commit"],
   terminal: ["terminal.run"],
+  sandbox: ["sandbox.run"],
   web: ["web.search", "web.fetch"],
   docker: ["docker.ps", "docker.logs", "docker.stats", "docker.inspect", "docker.restart", "docker.stop", "docker.remove"],
   ssh: ["ssh.run"],

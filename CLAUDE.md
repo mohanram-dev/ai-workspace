@@ -206,7 +206,7 @@ PostgreSQL via Drizzle. Schema in `packages/database/src/schema/`, one file per 
 - Aggregates use raw `sql\`\`` with `.mapWith(Number)` (Drizzle subqueries lose table qualification — Phase 5 lesson).
 - Partial index predicates must use `sql.raw` (Postgres rejects bound parameters in DDL).
 - Never put a `Date` inside a raw `sql` fragment in a query: postgres-js receives it unencoded and throws (`The "string" argument must be … Received an instance of Date`). Use the typed operators (`lt`, `gte`, …), which encode it through the column. Caught by a test in `integrations.test.ts`.
-- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 21 migrations exist, `0000_init` → `0020_api_tokens_and_webhooks`. Data migrations (0013, 0015, 0016) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
+- **Migrations**: `pnpm db:generate` creates `NNNN_<random>.sql`; **rename it descriptively and update the `tag` in `migrations/meta/_journal.json`**, then `pnpm db:migrate`. 22 migrations exist, `0000_init` → `0021_coding_agent_sandbox`. Data migrations (0013, 0015, 0016, 0021) are hand-written, with no snapshot file. The migrator runs a migration only when its journal `when` is later than the last applied one's, so a hand-written entry must get a `when` above its predecessor's.
 - **Test DB**: tests reset `aiw_test` (created by `docker/postgres/init`). `testing.ts` refuses any name not ending in `_test`. **Never run package tests while a live server uses the test DB.**
 
 ---
@@ -311,6 +311,7 @@ Defined and validated in `packages/runtime/src/env.ts`. Documented with comments
 | Security | `ALLOW_REGISTRATION` (false), `CHAT_RATE_LIMIT_PER_MINUTE` |
 | Tasks | `MAX_RUNNING_TASKS_PER_USER`, `WORKSPACE_ROOT` (`./data/workspaces`) |
 | Terminal | `TERMINAL_ENABLED` (false), `TERMINAL_ALLOWED_COMMANDS`, `TERMINAL_TIMEOUT_SECONDS` |
+| Code sandbox | `SANDBOX_ENABLED` (false), `SANDBOX_IMAGE` (`node:22-bookworm`), `SANDBOX_NETWORK` (`none`), `SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_TIMEOUT_SECONDS`, `SANDBOX_HOST_WORKSPACE_ROOT` |
 | Web | `WEB_SEARCH_PROVIDER` (gemini/searxng/none), `WEB_SEARCH_MODEL`, `SEARXNG_URL`, `WEB_FETCH_ALLOW_PRIVATE_NETWORK` |
 | Infra tools | `DOCKER_TOOLS_ENABLED`, `DOCKER_TIMEOUT_SECONDS`, `SSH_TOOLS_ENABLED`, `SSH_HOSTS`, `SSH_TIMEOUT_SECONDS`, `GITHUB_TOKEN`, `GITHUB_API_URL` |
 | MCP | `MCP_STDIO_ENABLED` (false, admins only), `MCP_ALLOW_PRIVATE_NETWORK` |
@@ -412,7 +413,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 
 ## 22. Known limitations / issues
 
-- **No sandbox** for `terminal.run`, `ssh.run`, Docker tools or the browser: they run as the process user (inside the worker container in production, which limits blast radius but is not isolation). This is the one genuine security gap; all three tool groups are off by default because of it.
+- **No sandbox** for `terminal.run`, `ssh.run`, Docker tools or the browser: they run as the process user (inside the worker container in production, which limits blast radius but is not isolation). All three are off by default because of it. For running code, prefer **`sandbox.run`** (`@aiw/tools/src/builtin/sandbox.ts`, `SandboxManager`): a throwaway container per task, created on first use, removed by `onTaskEnd`, with its `sleep` lifetime (3,900 s) outlasting the longest task so orphans remove themselves. Keep its hardening flags (`--network none` default, `--cap-drop ALL`, `no-new-privileges`, `--read-only`, non-root `--user`, memory/CPU/pids caps); its docker CLI runs with its own HOME so it never writes into a workspace. **Not supported in the shipped prod compose stack**: the worker image has no docker CLI, and a host socket mount would be root-equivalent; do not add that by default.
 - Providers: **Gemini**, **OpenAI-compatible** and **OpenRouter**. The Anthropic native API is not implemented natively; reach Claude models through OpenRouter or another gateway. A gateway's `/models` may list hundreds of entries (OpenRouter: 400+), so set `OPENAI_MODELS` / `OPENROUTER_MODELS` to keep the picker usable.
 - **S3** storage is not implemented (owner's decision: local disk under `WORKSPACE_ROOT`).
 - PDFs are read from their **text layer** only: no OCR, so a scanned PDF is reported as having no text. Detection is by the `%PDF-` header, not the file name; check for it **before** any "has a zero byte" binary probe, because many PDFs have no zero byte in their first kilobytes and would pass as text. `files.read` is the only file tool that understands PDFs — `files.edit` must keep refusing them.
@@ -436,7 +437,7 @@ pnpm --filter @aiw/agents exec vitest run test/delegation.test.ts   # one file
 2. Remove the stray `0` on the last line of `.env` (harmless, ignored by the parser).
 3. Use the app for real for a week and fix what daily use surfaces.
 4. Before internet exposure: fresh `BETTER_AUTH_SECRET`/`POSTGRES_PASSWORD`, `APP_URL` = real https URL, `ALLOW_REGISTRATION=false`, cron for `scripts/backup.sh`.
-5. Sandboxing for terminal/browser/SSH (disposable container per task) if those tools will be enabled on a shared host.
+5. Sandboxing for terminal/browser/SSH if those tools will be enabled on a shared host. Running *code* already has one: `sandbox.run` (disposable container per task).
 6. Nice-to-haves from §22: second model provider, MCP OAuth, activity export, scheduler catch-up.
 
 ---

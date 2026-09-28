@@ -2,6 +2,7 @@
 
 import {
   isActiveTaskStatus,
+  TERMINAL_TOOL_NAMES,
   type MessageDto,
   type TaskWithStepsDto,
 } from "@aiw/shared";
@@ -242,12 +243,12 @@ function TaskReplyBody({
               {executing &&
                 task.toolCalls.some(
                   (c) =>
-                    c.toolName === "terminal.run" && c.status === "running",
+                    TERMINAL_TOOL_NAMES.includes(c.toolName) && c.status === "running",
                 ) && (
                   <TerminalView
                     toolCalls={task.toolCalls.filter(
                       (c) =>
-                        c.toolName === "terminal.run" && c.status === "running",
+                        TERMINAL_TOOL_NAMES.includes(c.toolName) && c.status === "running",
                     )}
                     live={live.terminal}
                   />
